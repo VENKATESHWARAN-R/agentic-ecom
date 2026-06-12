@@ -15,7 +15,14 @@ The current POC feature set and the user journeys it is built to demo.
 
 ## Catalog
 
-~59 realistic products across 8 categories, including deals, two out-of-stock demo items (`galaxy-s25-ultra`, `rtx-5070`) that power the alternatives flow, and PC-part compatibility metadata (socket, memory type, power draw, PSU wattage, GPU length, case clearance) that powers the warnings demo.
+61 realistic products across 8 categories, including deals, two out-of-stock demo items (`galaxy-s25-ultra`, `rtx-5070`) that power the alternatives flow, a flagship `rtx-5090` and a `wifi-adapter` (for the fast-path and redundancy demos), and PC-part compatibility metadata (socket, memory type, power draw, PSU wattage, GPU length, case clearance) that powers the warnings demo.
+
+## Accounts & Customer Memory
+
+- **Personas**: a header avatar menu switches between `guest` and three demo accounts — Elina (brand-new, empty), Aino (returning builder, 3 orders), Sami (power user, 28 orders). Selection persists in localStorage; no real auth.
+- **`/account`**: profile card (saved address, preferred payment) and order history, each order showing a status chip and a return-state line ("Return window open until 30 Jun · 18 days left", "closed", "Arriving soon"). Empty state for new accounts; a sign-in panel for guests.
+- **Order history & returns**: seeded orders with relative dates, so there's always an open return window, a freshly closed one, and an in-transit order. Returns are computed from the delivery date, never reasoned.
+- **Cross-order compatibility**: the assistant knows what you already own (derived from your delivered/shipped orders) and flags conflicts against parts from *past* orders — e.g. an Intel CPU against the AM5 board you bought last month — with the order number and date.
 
 ## Agentic Shopping
 
@@ -23,11 +30,13 @@ The sidebar assistant can:
 
 - Search the catalog and present results as cards in chat.
 - Open filtered listings, product pages, and top-level pages; highlight products in view.
-- Compare products and report PC-part compatibility verdicts.
+- Compare products and report PC-part compatibility verdicts — including against hardware you already own.
+- Answer order and return questions (`getMyOrders`, `getReturnInfo`) with exact, computed deadlines; order history is paginated, never dumped into context.
 - Recommend a custom PC build (`recommendPcBuild`) or a prebuilt gaming setup (`recommendGamingSetup`) for a budget.
 - Suggest in-stock alternatives for unavailable or over-budget items.
-- Propose cart additions and place orders — only via approval cards the user must click.
-- Prefill the checkout form with details the user gave in chat.
+- Propose cart additions and place orders — only via approval cards the user must click; the cart card re-checks compatibility against owned hardware as a safety net.
+- Prefill the checkout form with details given in chat, or apply your saved address (`useSavedAddress`) without the address ever appearing in chat.
+- **Adapt to the user**: a fast path for fully-specified requests ("RTX 5090, order it to my home address" = two clicks), a guided one-question-at-a-time path for novices.
 
 ## Signature Journeys
 
@@ -36,6 +45,10 @@ The sidebar assistant can:
 3. **Out of stock** — "I want the RTX 5070" → the agent says it's unavailable and offers in-stock alternatives at similar prices.
 4. **PC build** — "Build me a gaming PC for €1500" → one or two clarifying questions → a compatibility-checked part list rendered as a card, with tradeoffs.
 5. **Chat-driven checkout** — the agent proposes items → user approves → user gives delivery details → `prefillCheckout` → `confirmOrder` approval card → order confirmation page.
+6. **Returns (as Aino)** — "Can I still return the motherboard I ordered?" → `getMyOrders`/`getReturnInfo` → a card with the exact return-by date and an eligible/closed badge.
+7. **Cross-order conflict (as Aino)** — "Add an Intel i7-14700K" → the agent flags it against the AM5 board from order VLT-1002; even if the prose missed it, the approval card shows the conflict.
+8. **Expert fast path (as Sami)** — "RTX 5090, order it to my home address" → fits the case, PSU flagged with an upgrade offer, then two clicks (approve cart, place order); the address never appears in chat.
+9. **Novice guided path (as Elina)** — "I need a laptop" → one question at a time, narrated UI, no order tools called.
 
 ## WebMCP Enhancement
 

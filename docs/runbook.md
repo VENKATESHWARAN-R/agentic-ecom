@@ -26,7 +26,7 @@ Selects the model for the CopilotKit BuiltInAgent. Both `provider:model` and `pr
 
 ```bash
 COPILOTKIT_MODEL=anthropic:claude-sonnet-4-6
-COPILOTKIT_MODEL=anthropic/claude-3.5-haiku
+COPILOTKIT_MODEL=anthropic:claude-haiku-4-5-20251001
 COPILOTKIT_MODEL=openai/gpt-4o-mini
 COPILOTKIT_MODEL=google/gemini-2.5-flash
 ```

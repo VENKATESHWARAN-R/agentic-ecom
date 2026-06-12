@@ -15,7 +15,8 @@ const PAYMENT_OPTIONS: { id: CheckoutDetails["paymentMethod"]; title: string; de
 ];
 
 export default function CheckoutPage() {
-  const { hydrated, cart, cartTotal, checkoutDraft, updateCheckoutDraft, placeOrder, lastOrder } = useShop();
+  const { hydrated, cart, cartTotal, checkoutDraft, updateCheckoutDraft, placeOrder, lastOrder, activeUser, applySavedAddress } =
+    useShop();
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const emptyCart = hydrated && !cart.length && !lastOrder;
@@ -68,7 +69,14 @@ export default function CheckoutPage() {
       <form className="two-col" onSubmit={submit}>
         <div>
           <div className="panel">
-            <h3 style={{ marginTop: 0 }}>Delivery details</h3>
+            <div className="panel-head">
+              <h3 style={{ marginTop: 0, marginBottom: 0 }}>Delivery details</h3>
+              {activeUser?.savedAddress && (
+                <button type="button" className="btn btn-sm" onClick={() => applySavedAddress()}>
+                  Use saved address
+                </button>
+              )}
+            </div>
             <div className="form-grid">
               <div className="form-field">
                 <label htmlFor="fullName">Full name</label>

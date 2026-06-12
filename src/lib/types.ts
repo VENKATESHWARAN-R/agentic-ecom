@@ -28,6 +28,7 @@ export type VisualKind =
   | "mouse"
   | "charger"
   | "webcam"
+  | "wifi-adapter"
   | "smart-home";
 
 export type Socket = "AM5" | "AM4" | "LGA1700" | "LGA1851";
@@ -98,12 +99,19 @@ export type CheckoutDetails = {
   paymentMethod: "card" | "invoice" | "financing";
 };
 
+export type OrderStatus = "processing" | "shipped" | "delivered";
+
 export type Order = {
   number: string;
+  /** Persona the order belongs to. Identity is never a model-supplied parameter (see docs/architecture.md). */
+  userId: PersonaId;
   lines: CartLine[];
   total: number;
   details: CheckoutDetails;
   placedAt: string;
+  status: OrderStatus;
+  /** ISO date; set once status is "delivered". Drives the return window. */
+  deliveredAt?: string;
 };
 
 export type SortOption = "relevance" | "price-asc" | "price-desc" | "rating";
@@ -144,4 +152,44 @@ export type CompatibilityResult = {
   compatible: boolean;
   warnings: string[];
   notes: string[];
+};
+
+// ---------------------------------------------------------------- personas
+// Mock demo identities. POC-only: static seed data, no auth, selection lives in
+// localStorage. See docs/architecture.md. "guest" is the signed-out default.
+
+export type PersonaId = "guest" | "elina" | "aino" | "sami";
+
+export type UserProfile = {
+  id: Exclude<PersonaId, "guest">;
+  name: string;
+  email: string;
+  /** One-line label for the persona switcher, e.g. "Returning builder". */
+  personaLabel: string;
+  /** Saved delivery details, minus payment. Applied via prefillCheckout — never transits the model. */
+  savedAddress?: Omit<CheckoutDetails, "paymentMethod">;
+  preferredPayment?: CheckoutDetails["paymentMethod"];
+};
+
+export type ReturnEligibility = {
+  status: "eligible" | "closed" | "awaiting-delivery" | "cancellable";
+  /** ISO date — present when status === "eligible". */
+  deadline?: string;
+  daysLeft?: number;
+};
+
+/** One derived PC-part the customer already owns. Bounded: one entry per category, newest wins. */
+export type OwnedPart = {
+  productId: string;
+  category: "motherboard" | "cpu" | "gpu" | "ram" | "psu" | "case";
+  orderNumber: string;
+  orderedOn: string; // ISO date
+  inTransit?: boolean; // status !== "delivered"
+};
+
+/** Minimal reference to an owned product, passed (ids + provenance only) to checkCompatibility. */
+export type OwnedRef = {
+  productId: string;
+  orderNumber: string;
+  orderedOn: string; // ISO date
 };

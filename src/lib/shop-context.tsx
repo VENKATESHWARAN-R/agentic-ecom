@@ -1,8 +1,9 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
-import type { CartLine, CheckoutDetails, Order } from "./types";
+import type { CartLine, CheckoutDetails, Order, PersonaId, UserProfile } from "./types";
 import { cartCount, cartTotal, getProduct } from "./services";
+import { getUserProfile, isPersonaId } from "./users";
 
 type ShopContextValue = {
   /** False until the cart has been restored from localStorage after mount. */
@@ -26,6 +27,16 @@ type ShopContextValue = {
 
   checkoutDraft: Partial<CheckoutDetails>;
   updateCheckoutDraft: (patch: Partial<CheckoutDetails>) => void;
+  /** Copies the active persona's saved address into the checkout draft. Returns false if there's none. */
+  applySavedAddress: () => boolean;
+
+  /** Active demo persona. "guest" = signed out. Identity is never model-supplied (see docs/architecture.md). */
+  personaId: PersonaId;
+  activeUser: UserProfile | null;
+  setActiveUser: (id: PersonaId) => void;
+
+  /** Orders placed during this session (all personas, newest first). Merged with seed in /account & tools. */
+  sessionOrders: Order[];
 
   lastOrder: Order | null;
   placeOrder: (details: CheckoutDetails) => Order | null;
@@ -34,6 +45,16 @@ type ShopContextValue = {
 const ShopContext = createContext<ShopContextValue | null>(null);
 
 const CART_KEY = "voltti.cart.v1";
+const USER_KEY = "voltti.user.v1";
+const SESSION_ORDERS_KEY = "voltti.session-orders.v1";
+
+/** Non-PII checkout defaults for a persona (payment + country only — the address is applied explicitly). */
+function personaCheckoutDefaults(user: UserProfile | null): Partial<CheckoutDetails> {
+  return {
+    country: user?.savedAddress?.country ?? "Finland",
+    paymentMethod: user?.preferredPayment ?? "card",
+  };
+}
 
 export function ShopProvider({ children }: { children: React.ReactNode }) {
   const [cart, setCart] = useState<CartLine[]>([]);
@@ -43,22 +64,42 @@ export function ShopProvider({ children }: { children: React.ReactNode }) {
   const [highlightedIds, setHighlightedIds] = useState<string[]>([]);
   const [checkoutDraft, setCheckoutDraft] = useState<Partial<CheckoutDetails>>({ country: "Finland", paymentMethod: "card" });
   const [lastOrder, setLastOrder] = useState<Order | null>(null);
+  const [personaId, setPersonaId] = useState<PersonaId>("guest");
+  const [sessionOrders, setSessionOrders] = useState<Order[]>([]);
+
+  const activeUser = useMemo(() => getUserProfile(personaId), [personaId]);
 
   useEffect(() => {
+    // One-time hydration from localStorage after mount (avoids SSR mismatch).
+    /* eslint-disable react-hooks/set-state-in-effect -- intentional one-time hydration */
     try {
-      const stored = window.localStorage.getItem(CART_KEY);
-      // One-time hydration from localStorage after mount (avoids SSR mismatch).
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      if (stored) setCart(JSON.parse(stored));
+      const storedCart = window.localStorage.getItem(CART_KEY);
+      if (storedCart) setCart(JSON.parse(storedCart));
+      const storedUser = window.localStorage.getItem(USER_KEY);
+      if (storedUser && isPersonaId(storedUser)) {
+        setPersonaId(storedUser);
+        setCheckoutDraft((current) => ({ ...current, ...personaCheckoutDefaults(getUserProfile(storedUser)) }));
+      }
+      const storedOrders = window.localStorage.getItem(SESSION_ORDERS_KEY);
+      if (storedOrders) setSessionOrders(JSON.parse(storedOrders));
     } catch {
       // ignore corrupted storage
     }
     setHydrated(true);
+    /* eslint-enable react-hooks/set-state-in-effect */
   }, []);
 
   useEffect(() => {
     if (hydrated) window.localStorage.setItem(CART_KEY, JSON.stringify(cart));
   }, [cart, hydrated]);
+
+  useEffect(() => {
+    if (hydrated) window.localStorage.setItem(USER_KEY, personaId);
+  }, [personaId, hydrated]);
+
+  useEffect(() => {
+    if (hydrated) window.localStorage.setItem(SESSION_ORDERS_KEY, JSON.stringify(sessionOrders));
+  }, [sessionOrders, hydrated]);
 
   const addToCart = useCallback((productId: string, quantity = 1) => {
     const product = getProduct(productId);
@@ -103,21 +144,45 @@ export function ShopProvider({ children }: { children: React.ReactNode }) {
     setCheckoutDraft((current) => ({ ...current, ...patch }));
   }, []);
 
+  const applySavedAddress = useCallback(() => {
+    const user = getUserProfile(personaId);
+    if (!user?.savedAddress) return false;
+    setCheckoutDraft((current) => ({
+      ...current,
+      ...user.savedAddress,
+      paymentMethod: user.preferredPayment ?? current.paymentMethod ?? "card",
+    }));
+    return true;
+  }, [personaId]);
+
+  const setActiveUser = useCallback((id: PersonaId) => {
+    // Switching identity: keep the cart, but clear highlights/compare and reset
+    // the checkout draft to the new persona's (non-PII) defaults.
+    setPersonaId(id);
+    setHighlightedIds([]);
+    setCompareIds([]);
+    setCompareOpen(false);
+    setCheckoutDraft(personaCheckoutDefaults(getUserProfile(id)));
+  }, []);
+
   const placeOrder = useCallback(
     (details: CheckoutDetails) => {
       if (!cart.length) return null;
       const order: Order = {
         number: `VLT-${Date.now().toString(36).toUpperCase()}-${Math.floor(Math.random() * 900 + 100)}`,
+        userId: personaId,
         lines: cart,
         total: cartTotal(cart),
         details,
         placedAt: new Date().toISOString(),
+        status: "processing",
       };
       setLastOrder(order);
+      setSessionOrders((current) => [order, ...current]);
       setCart([]);
       return order;
     },
-    [cart],
+    [cart, personaId],
   );
 
   const value = useMemo<ShopContextValue>(
@@ -139,10 +204,15 @@ export function ShopProvider({ children }: { children: React.ReactNode }) {
       setHighlightedIds,
       checkoutDraft,
       updateCheckoutDraft,
+      applySavedAddress,
+      personaId,
+      activeUser,
+      setActiveUser,
+      sessionOrders,
       lastOrder,
       placeOrder,
     }),
-    [hydrated, cart, addToCart, removeFromCart, setQuantity, clearCart, compareIds, toggleCompare, compareOpen, highlightedIds, checkoutDraft, updateCheckoutDraft, lastOrder, placeOrder],
+    [hydrated, cart, addToCart, removeFromCart, setQuantity, clearCart, compareIds, toggleCompare, compareOpen, highlightedIds, checkoutDraft, updateCheckoutDraft, applySavedAddress, personaId, activeUser, setActiveUser, sessionOrders, lastOrder, placeOrder],
   );
 
   return <ShopContext.Provider value={value}>{children}</ShopContext.Provider>;

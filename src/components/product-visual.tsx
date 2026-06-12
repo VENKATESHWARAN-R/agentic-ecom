@@ -187,4 +187,15 @@ const ICONS: Record<VisualKind, React.ReactNode> = {
       <path d="M60 66 v6 l4 4" />
     </>
   ),
+  "wifi-adapter": (
+    <>
+      <rect x="28" y="44" width="64" height="40" rx="5" />
+      {[40, 52, 64, 76].map((x) => (
+        <line key={x} x1={x} y1="84" x2={x} y2="92" />
+      ))}
+      <circle cx="60" cy="72" r="2.5" fill="currentColor" stroke="none" />
+      <path d="M51 64 a13 13 0 0 1 18 0" />
+      <path d="M44 56 a23 23 0 0 1 32 0" />
+    </>
+  ),
 };

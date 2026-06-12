@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { z } from "zod";
 import {
   CopilotSidebar,
@@ -14,14 +14,127 @@ import {
 import { AlertTriangle, CheckCircle2 } from "lucide-react";
 import {
   checkCompatibility,
+  formatDate,
   formatPrice,
   getProduct,
   getProducts,
 } from "@/lib/services";
+import {
+  getOrderDetail,
+  getOrdersFor,
+  ordersForUser,
+  ownedHardwareProfile,
+  seedOrders,
+} from "@/lib/orders";
 import { useShop } from "@/lib/shop-context";
-import type { CheckoutDetails, Product } from "@/lib/types";
+import type { CheckoutDetails, OrderStatus, Product, ReturnEligibility } from "@/lib/types";
 import { ProductVisual } from "@/components/product-visual";
 import { registerWebMcpTools } from "@/lib/webmcp";
+
+const STATUS_LABEL: Record<OrderStatus, string> = {
+  processing: "Processing",
+  shipped: "Shipped",
+  delivered: "Delivered",
+};
+
+type OrderSummaryShape = { number: string; placedAt: string; status: OrderStatus; total: number; items: string[] };
+type ReturnInfoShape = {
+  signedIn: boolean;
+  found?: boolean;
+  orderNumber?: string;
+  policy?: string;
+  order?: { number: string; status: OrderStatus; deliveredAt?: string; returnEligibility: ReturnEligibility; items: string[] };
+};
+
+function OrdersCard({ status, result }: { status: string; result: string | undefined }) {
+  if (status !== "complete") return <div className="tool-status">Fetching your orders…</div>;
+  const data = safeParse<{ signedIn: boolean; total?: number; offset?: number; returned?: number; orders?: OrderSummaryShape[] }>(result);
+  if (!data) return <div className="tool-status">Couldn&apos;t read your orders.</div>;
+  if (!data.signedIn)
+    return (
+      <div className="agent-card">
+        <h4>Sign in to see orders</h4>
+        <div className="tool-status">Pick a demo account from the menu to view order history.</div>
+      </div>
+    );
+  if (!data.orders?.length) return <div className="agent-card"><h4>No orders found</h4></div>;
+  const shown = (data.offset ?? 0) + (data.returned ?? data.orders.length);
+  return (
+    <div className="agent-card">
+      <h4>
+        {data.total} order{data.total === 1 ? "" : "s"}
+      </h4>
+      {data.orders.map((order) => (
+        <div key={order.number} className="agent-order-row">
+          <div className="agent-order-main">
+            <span className="agent-order-number">{order.number}</span>
+            <span className="agent-order-items">{order.items.join(", ")}</span>
+          </div>
+          <div className="agent-order-side">
+            <span className={`status-chip status-${order.status}`}>{STATUS_LABEL[order.status]}</span>
+            <span className="agent-order-date">{formatDate(order.placedAt)}</span>
+          </div>
+        </div>
+      ))}
+      {typeof data.total === "number" && shown < data.total && (
+        <div className="tool-status">
+          Showing {shown} of {data.total} — ask for more to see older orders.
+        </div>
+      )}
+    </div>
+  );
+}
+
+const RETURN_BADGE: Record<ReturnEligibility["status"], { label: string; cls: string }> = {
+  eligible: { label: "Returnable", cls: "status-delivered" },
+  closed: { label: "Closed", cls: "status-closed" },
+  "awaiting-delivery": { label: "In transit", cls: "status-shipped" },
+  cancellable: { label: "Processing", cls: "status-processing" },
+};
+
+function ReturnInfoCard({ status, result }: { status: string; result: string | undefined }) {
+  if (status !== "complete") return <div className="tool-status">Checking the return window…</div>;
+  const data = safeParse<ReturnInfoShape>(result);
+  if (!data) return <div className="tool-status">Couldn&apos;t read return info.</div>;
+  if (!data.signedIn)
+    return (
+      <div className="agent-card">
+        <h4>Sign in to see returns</h4>
+        <div className="tool-status">Pick a demo account from the menu first.</div>
+      </div>
+    );
+  if (!data.found || !data.order)
+    return (
+      <div className="agent-card">
+        <h4>No order {data.orderNumber ?? ""} found</h4>
+      </div>
+    );
+  const eligibility = data.order.returnEligibility;
+  const badge = RETURN_BADGE[eligibility.status];
+  return (
+    <div className="agent-card">
+      <h4 style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        {data.order.number}
+        <span className={`status-chip ${badge.cls}`}>{badge.label}</span>
+      </h4>
+      <div className="tool-status">{data.order.items.join(", ")}</div>
+      {eligibility.status === "eligible" && (
+        <div className="return-line return-ok">
+          Return by {formatDate(eligibility.deadline!)}
+          {eligibility.daysLeft != null ? ` · ${eligibility.daysLeft} days left` : ""}
+        </div>
+      )}
+      {eligibility.status === "closed" && <div className="return-line return-muted">The return window has closed.</div>}
+      {eligibility.status === "awaiting-delivery" && (
+        <div className="return-line return-warn">Not delivered yet — the return window opens on delivery.</div>
+      )}
+      {eligibility.status === "cancellable" && (
+        <div className="return-line return-warn">Still processing — cancellable until it ships.</div>
+      )}
+      {data.policy && <div className="tool-status">{data.policy}</div>}
+    </div>
+  );
+}
 
 const CATEGORY_VALUES = ["phones", "laptops", "desktops", "components", "monitors", "audio", "accessories", "smart-home"] as const;
 
@@ -64,13 +177,62 @@ export function ShoppingAssistant() {
   const router = useRouter();
   const pathname = usePathname();
   const shop = useShop();
+  const { personaId, sessionOrders } = shop;
+
+  // Derived, bounded customer memory (see docs/architecture.md). Recomputed only when the
+  // persona or this session's orders change. The same ≤6-entry profile whether
+  // the customer has 3 orders or 1,000. ownedRefs (ids + provenance) are what
+  // the agent passes to checkCompatibility and what the safety net re-checks.
+  const ownedParts = useMemo(
+    () => ownedHardwareProfile(personaId, [...sessionOrders, ...seedOrders]),
+    [personaId, sessionOrders],
+  );
+  const ownedRefs = useMemo(
+    () => ownedParts.map((part) => ({ productId: part.productId, orderNumber: part.orderNumber, orderedOn: part.orderedOn })),
+    [ownedParts],
+  );
+  const ownedHardware = useMemo(
+    () =>
+      ownedParts.map((part) => {
+        const product = getProduct(part.productId);
+        return {
+          productId: part.productId,
+          category: part.category,
+          socket: product?.compat?.socket ?? null,
+          memoryType: product?.compat?.memoryType ?? null,
+          wifi: Boolean(product?.tags.includes("wifi")),
+          orderNumber: part.orderNumber,
+          orderedOn: part.orderedOn,
+          inTransit: Boolean(part.inTransit),
+        };
+      }),
+    [ownedParts],
+  );
+  const ordersTotal = useMemo(
+    () => ordersForUser(personaId, [...sessionOrders, ...seedOrders]).length,
+    [personaId, sessionOrders],
+  );
 
   // ---------- What the agent can see ----------
+  // Context budget (see docs/architecture.md): derived/bounded facts only. Raw order history is
+  // NOT here (paginated behind getMyOrders); the saved address is NEVER here
+  // (applied via prefillCheckout(useSavedAddress) — §4.3).
 
   useAgentContext({
     description:
-      "Live storefront state: the page the user is looking at, cart contents, comparison selection, and checkout form state.",
+      "Live storefront + signed-in customer state: who they are, what PC hardware they already own (derived, ≤6 entries), the page they're on, cart, comparison, and whether checkout is complete. Fetch order history with getMyOrders and returns with getReturnInfo — they are not in this context. The saved address never appears here.",
     value: {
+      user: shop.activeUser
+        ? {
+            signedIn: true,
+            name: shop.activeUser.name.split(" ")[0],
+            persona: shop.activeUser.personaLabel,
+            ordersTotal,
+            hasSavedAddress: Boolean(shop.activeUser.savedAddress),
+            preferredPayment: shop.activeUser.preferredPayment ?? null,
+          }
+        : { signedIn: false },
+      ownedHardware,
       currentPath: pathname,
       cart: shop.cart.map((line) => {
         const product = getProduct(line.productId);
@@ -84,7 +246,6 @@ export function ShoppingAssistant() {
       cartTotal: shop.cartTotal,
       comparisonProductIds: shop.compareIds,
       checkoutForm: {
-        ...shop.checkoutDraft,
         complete: Boolean(
           shop.checkoutDraft.fullName &&
             shop.checkoutDraft.email &&
@@ -97,15 +258,32 @@ export function ShoppingAssistant() {
     },
   });
 
-  useConfigureSuggestions({
-    available: "before-first-message",
-    suggestions: [
+  const suggestions = useMemo(() => {
+    if (personaId === "aino") {
+      return [
+        { title: "Return my motherboard?", message: "Can I still return the motherboard I ordered?" },
+        { title: "Does an i7 fit?", message: "Will an Intel Core i7-14700K work with my current setup?" },
+        { title: "Upgrade my GPU", message: "I want a new graphics card for my PC. What fits my build?" },
+        { title: "My recent orders", message: "What have I ordered recently?" },
+      ];
+    }
+    if (personaId === "sami") {
+      return [
+        { title: "Order an RTX 5090", message: "I want an RTX 5090 — order it to my home address." },
+        { title: "My order history", message: "What have I ordered this year?" },
+        { title: "A 4K gaming monitor", message: "Recommend a 4K gaming monitor that suits my setup." },
+        { title: "Office headphones", message: "I need noise-cancelling headphones for the office." },
+      ];
+    }
+    return [
       { title: "Build a gaming PC", message: "I want to build a gaming PC for around €1500. Help me pick the parts." },
       { title: "Phone deals", message: "Any discounted phones under €500 right now?" },
       { title: "Check my build", message: "Check if the products in my comparison are compatible with each other." },
       { title: "Headphones advice", message: "I need noise-cancelling headphones for commuting. What do you recommend?" },
-    ],
-  });
+    ];
+  }, [personaId]);
+
+  useConfigureSuggestions({ available: "before-first-message", suggestions }, [suggestions]);
 
   // ---------- Navigation & UI steering tools ----------
 
@@ -182,26 +360,91 @@ export function ShoppingAssistant() {
     },
   });
 
-  useFrontendTool({
-    name: "prefillCheckout",
-    description:
-      "Fill the checkout form with delivery details the user has given in chat, then open the checkout page. Never invent details — only use what the user explicitly provided.",
-    parameters: z.object({
-      fullName: z.string().optional(),
-      email: z.string().optional(),
-      address: z.string().optional(),
-      city: z.string().optional(),
-      postalCode: z.string().optional(),
-      country: z.string().optional(),
-      paymentMethod: z.enum(["card", "invoice", "financing"]).optional(),
-    }),
-    handler: async (details) => {
-      const patch = Object.fromEntries(Object.entries(details).filter(([, value]) => value !== undefined));
-      shop.updateCheckoutDraft(patch as Partial<CheckoutDetails>);
-      router.push("/checkout");
-      return "Checkout form updated with the provided details. The user can review them on the checkout page.";
+  useFrontendTool(
+    {
+      name: "prefillCheckout",
+      description:
+        "Fill the checkout form and open the checkout page. Set useSavedAddress: true to apply the signed-in user's saved delivery address — the address itself never appears in chat, only on the page. Otherwise pass only the delivery details the user explicitly gave you; never invent details.",
+      parameters: z.object({
+        useSavedAddress: z
+          .boolean()
+          .optional()
+          .describe("Apply the signed-in persona's saved address. Use this when the user says 'my home address'."),
+        fullName: z.string().optional(),
+        email: z.string().optional(),
+        address: z.string().optional(),
+        city: z.string().optional(),
+        postalCode: z.string().optional(),
+        country: z.string().optional(),
+        paymentMethod: z.enum(["card", "invoice", "financing"]).optional(),
+      }),
+      handler: async ({ useSavedAddress, ...details }) => {
+        if (useSavedAddress) {
+          const applied = shop.applySavedAddress();
+          router.push("/checkout");
+          return applied
+            ? "Saved address applied. The user can review it on the checkout page."
+            : "No saved address on file — ask the user for their delivery details instead.";
+        }
+        const patch = Object.fromEntries(Object.entries(details).filter(([, value]) => value !== undefined));
+        shop.updateCheckoutDraft(patch as Partial<CheckoutDetails>);
+        router.push("/checkout");
+        return "Checkout form updated with the provided details. The user can review them on the checkout page.";
+      },
     },
-  });
+    [shop.applySavedAddress, shop.updateCheckoutDraft],
+  );
+
+  // ---------- Identity-scoped order/return tools (frontend; read the active persona) ----------
+
+  useFrontendTool(
+    {
+      name: "getMyOrders",
+      description:
+        "List the signed-in customer's recent orders as compact summaries. Results are PAGINATED — default 5, max 20 per call; never request more than you need. Use the returned `total` and `offset` to fetch older orders only if the user asks.",
+      parameters: z.object({
+        limit: z.number().min(1).max(20).optional().describe("How many orders to return (default 5)."),
+        offset: z.number().min(0).optional().describe("Skip this many of the newest orders, for pagination."),
+      }),
+      handler: async ({ limit, offset }) => {
+        if (personaId === "guest") return { signedIn: false };
+        const merged = [...sessionOrders, ...seedOrders];
+        const page = getOrdersFor(personaId, { limit: limit ?? 5, offset: offset ?? 0 }, merged);
+        return { signedIn: true, total: page.total, offset: offset ?? 0, returned: page.orders.length, orders: page.orders };
+      },
+      render: ({ status, result }) => <OrdersCard status={status} result={result} />,
+    },
+    [personaId, sessionOrders],
+  );
+
+  useFrontendTool(
+    {
+      name: "getReturnInfo",
+      description:
+        "Get the return status and exact return-by date for one of the signed-in customer's orders. Quote the deadline the tool returns verbatim — never compute dates yourself.",
+      parameters: z.object({ orderNumber: z.string().describe("Order number, e.g. VLT-1002.") }),
+      handler: async ({ orderNumber }) => {
+        if (personaId === "guest") return { signedIn: false };
+        const merged = [...sessionOrders, ...seedOrders];
+        const detail = getOrderDetail(personaId, orderNumber, merged);
+        if (!detail) return { signedIn: true, found: false, orderNumber };
+        return {
+          signedIn: true,
+          found: true,
+          policy: "30-day free returns from the delivery date; item unopened or unused. Drop off at any Posti point (demo).",
+          order: {
+            number: detail.number,
+            status: detail.status,
+            deliveredAt: detail.deliveredAt,
+            returnEligibility: detail.returnEligibility,
+            items: detail.lines.map((line) => line.name),
+          },
+        };
+      },
+      render: ({ status, result }) => <ReturnInfoCard status={status} result={result} />,
+    },
+    [personaId, sessionOrders],
+  );
 
   // ---------- Human-in-the-loop approvals ----------
 
@@ -226,12 +469,34 @@ export function ShoppingAssistant() {
           (sum, item) => sum + (getProduct(item.productId!)?.price ?? 0) * (item.quantity ?? 1),
           0,
         );
+        // Safety net (see docs/agent-contract.md): re-run compatibility against what the user
+        // already owns, right here in the approval card, so a conflict surfaces
+        // at the moment of approval even if the model's text missed it.
+        const localCompat = checkCompatibility(items.map((item) => item.productId!), ownedRefs);
+        const redundancy = localCompat.notes.filter((note) => note.includes("unnecessary"));
         return (
           <div className="agent-card">
             <h4>Add to cart?</h4>
             {args.reason && <div style={{ marginBottom: 8 }}>{args.reason}</div>}
             <ProductRows ids={products.map((p) => p.id)} />
             <div className="agent-total">Total {formatPrice(total)}</div>
+            {localCompat.warnings.length > 0 && (
+              <div className="agent-safety">
+                <div className="agent-safety-head">
+                  <AlertTriangle size={14} color="var(--warn)" /> Checked against what you own
+                </div>
+                <ul className="warning-list">
+                  {localCompat.warnings.map((warning) => (
+                    <li key={warning}>{warning}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {redundancy.map((note) => (
+              <div key={note} className="notice notice-warn" style={{ marginTop: 8 }}>
+                {note}
+              </div>
+            ))}
             {status === "executing" && respond ? (
               <div className="hitl-actions">
                 <button className="btn btn-sm" onClick={() => respond({ approved: false, note: "User declined." })}>
@@ -259,7 +524,7 @@ export function ShoppingAssistant() {
         );
       },
     },
-    [shop.addToCart],
+    [shop.addToCart, ownedRefs],
   );
 
   useHumanInTheLoop(

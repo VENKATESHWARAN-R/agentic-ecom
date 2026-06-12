@@ -3,6 +3,7 @@ import type {
   CartLine,
   CompatibilityResult,
   GamingSetupRequest,
+  OwnedRef,
   PcBuildRequest,
   Product,
   SearchFilters,
@@ -14,6 +15,15 @@ export function formatPrice(value: number) {
     currency: "EUR",
     maximumFractionDigits: 0,
   }).format(value);
+}
+
+/** Single home for date display — keep server/client renders consistent. */
+export function formatDate(iso: string) {
+  return new Intl.DateTimeFormat("en-GB", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  }).format(new Date(iso));
 }
 
 export function getProduct(id: string) {
@@ -120,11 +130,25 @@ export function getAlternatives(productId: string, limit = 4) {
  * Deterministic PC-part compatibility check: CPU socket vs motherboard socket,
  * memory generation across CPU/board/RAM, GPU length vs case clearance,
  * PSU headroom, and stock availability.
+ *
+ * `owned` lets the check span *across orders*: parts the customer already owns
+ * are unioned into the build and any warning that involves one is attributed to
+ * its purchase ("…from your order VLT-1002 on 27 May 2026"). See docs/agent-contract.md.
  */
-export function checkCompatibility(productIds: string[]): CompatibilityResult {
-  const selected = getProducts(productIds);
+export function checkCompatibility(productIds: string[], owned: OwnedRef[] = []): CompatibilityResult {
+  const ownedMap = new Map(owned.map((ref) => [ref.productId, ref]));
+  const candidateIds = new Set(productIds);
+  // Union candidate + owned ids, de-duplicated, preserving order.
+  const allIds = [...new Set([...productIds, ...owned.map((ref) => ref.productId)])];
+  const selected = getProducts(allIds);
   const warnings: string[] = [];
   const notes: string[] = [];
+
+  /** Attribution suffix for an owned part, "" for a candidate part. */
+  const own = (product: Product) => {
+    const ref = ownedMap.get(product.id);
+    return ref ? ` (from your order ${ref.orderNumber} on ${formatDate(ref.orderedOn)})` : "";
+  };
 
   const cpus = selected.filter((p) => p.subcategory === "cpu");
   const boards = selected.filter((p) => p.subcategory === "motherboard");
@@ -137,7 +161,7 @@ export function checkCompatibility(productIds: string[]): CompatibilityResult {
     for (const board of boards) {
       if (cpu.compat?.socket && board.compat?.socket && cpu.compat.socket !== board.compat.socket) {
         warnings.push(
-          `${cpu.name} uses socket ${cpu.compat.socket}, but ${board.name} is a ${board.compat.socket} board. These are not compatible.`,
+          `${cpu.name}${own(cpu)} uses socket ${cpu.compat.socket}, but ${board.name}${own(board)} is a ${board.compat.socket} board. These are not compatible.`,
         );
       }
     }
@@ -146,7 +170,7 @@ export function checkCompatibility(productIds: string[]): CompatibilityResult {
   const memoryParts = [...cpus, ...boards, ...ramKits].filter((p) => p.compat?.memoryType);
   const memoryTypes = new Set(memoryParts.map((p) => p.compat!.memoryType));
   if (memoryTypes.size > 1) {
-    const detail = memoryParts.map((p) => `${p.name} (${p.compat!.memoryType})`).join(", ");
+    const detail = memoryParts.map((p) => `${p.name}${own(p)} (${p.compat!.memoryType})`).join(", ");
     warnings.push(`Mixed memory generations in this build: ${detail}. All parts must use the same memory type.`);
   }
 
@@ -158,7 +182,7 @@ export function checkCompatibility(productIds: string[]): CompatibilityResult {
         gpu.compat.gpuLengthMm > pcCase.compat.maxGpuLengthMm
       ) {
         warnings.push(
-          `${gpu.name} is ${gpu.compat.gpuLengthMm} mm long, but ${pcCase.name} fits GPUs up to ${pcCase.compat.maxGpuLengthMm} mm.`,
+          `${gpu.name}${own(gpu)} is ${gpu.compat.gpuLengthMm} mm long, but ${pcCase.name}${own(pcCase)} fits GPUs up to ${pcCase.compat.maxGpuLengthMm} mm.`,
         );
       }
     }
@@ -171,7 +195,7 @@ export function checkCompatibility(productIds: string[]): CompatibilityResult {
     for (const psu of psus) {
       if (psu.compat!.psuWatts! < headroomTarget) {
         warnings.push(
-          `${psu.name} (${psu.compat!.psuWatts} W) is tight for this build — recommended at least ${headroomTarget} W for safe headroom.`,
+          `${psu.name}${own(psu)} (${psu.compat!.psuWatts} W) is tight for this build — recommended at least ${headroomTarget} W for safe headroom.`,
         );
       }
     }
@@ -179,8 +203,19 @@ export function checkCompatibility(productIds: string[]): CompatibilityResult {
 
   for (const product of selected) {
     if (product.stock <= 0) {
-      warnings.push(`${product.name} is currently out of stock.`);
+      warnings.push(`${product.name}${own(product)} is currently out of stock.`);
     }
+  }
+
+  // Redundancy nudge (advisory note, never a blocking warning): a Wi-Fi adapter
+  // in the candidate set when an owned motherboard already has built-in Wi-Fi.
+  const ownedWifiBoards = boards.filter((b) => ownedMap.has(b.id) && b.tags.includes("wifi"));
+  const wifiAdapters = selected.filter((p) => p.subcategory === "wifi-adapter" && candidateIds.has(p.id));
+  if (ownedWifiBoards.length && wifiAdapters.length) {
+    const board = ownedWifiBoards[0];
+    notes.push(
+      `Your ${board.name}${own(board)} already has built-in Wi-Fi — the ${wifiAdapters[0].name} may be unnecessary.`,
+    );
   }
 
   if (cpus.length && boards.length && !ramKits.length) {
@@ -203,7 +238,7 @@ const BUILD_SHARE: Record<string, number> = {
   cpu: 0.22,
   motherboard: 0.12,
   ram: 0.08,
-  storage: 0.08,
+  ssd: 0.08,
   psu: 0.06,
   case: 0.06,
 };
@@ -244,15 +279,22 @@ export function recommendPcBuild(request: PcBuildRequest) {
     (p) =>
       (wantsAmdCpu ? p.brand === "AMD" : wantsIntelCpu ? p.brand === "Intel" : true) && prefersBrand(p),
   );
-  const board = cpu
-    ? pickPart("motherboard", budget * BUILD_SHARE.motherboard, undefined, (p) => p.compat?.socket !== cpu.compat?.socket)
-    : undefined;
   const memoryType = cpu?.compat?.memoryType;
+  const board = cpu
+    ? pickPart(
+        "motherboard",
+        budget * BUILD_SHARE.motherboard,
+        undefined,
+        (p) =>
+          p.compat?.socket !== cpu.compat?.socket ||
+          (!!memoryType && !!p.compat?.memoryType && p.compat.memoryType !== memoryType),
+      )
+    : undefined;
   const ram = pickPart("ram", budget * BUILD_SHARE.ram, undefined, (p) =>
     memoryType ? p.compat?.memoryType !== memoryType : false,
   );
   const gpu = pickPart("gpu", budget * BUILD_SHARE.gpu, prefersBrand);
-  const storage = pickPart("storage", budget * BUILD_SHARE.storage);
+  const storage = pickPart("ssd", budget * BUILD_SHARE.ssd);
   const pcCase = pickPart("case", budget * BUILD_SHARE.case, (p) =>
     gpu?.compat?.gpuLengthMm ? (p.compat?.maxGpuLengthMm ?? 0) >= gpu.compat.gpuLengthMm : true,
   );
