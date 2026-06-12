@@ -14,7 +14,7 @@ Working documentation for the Voltti agentic e-commerce POC, written for contrib
 
 Voltti is intentionally a POC. It exists to demonstrate agentic discovery, grounded product reasoning, compatibility checking, and human-approved cart/checkout flows. Keep it that size:
 
-- No databases, real auth, real payments, or live inventory integrations.
-- The catalog stays an in-memory array; the domain layer stays deterministic and offline.
-- Cart persistence stays in localStorage; orders stay mock.
+- No real auth, real payments, or live inventory integrations. The only database is the backend's SQLite, re-seeded on startup.
+- The catalog stays a static seed (`data/catalog.json`, shared by both services); the domain layer stays deterministic and offline.
+- Cart persistence stays in localStorage; orders are mock but owned by the backend DB.
 - WebMCP stays a feature-detected enhancement — core shopping must never depend on it.

@@ -1,55 +1,76 @@
 # Architecture
 
-Voltti is a single Next.js App Router application. A deterministic, in-memory domain layer (`src/lib/`) owns all product facts and commerce logic; two access paths sit on top of it — the storefront UI and the CopilotKit agent. Neither path may fork business logic.
+Voltti is two services. The **storefront** is a Next.js App Router application; the **agent backend** is a uv-managed Python service (FastAPI) hosting the shopping agent (Pydantic AI, speaking AG-UI), the deterministic domain logic, a REST API, and a SQLite database. The agentic system — prompt, tools, model — lives entirely in the backend and can be changed and deployed without touching the storefront.
 
 ```mermaid
 flowchart LR
     Shopper --> UI["Storefront pages (src/app)"]
     Shopper --> Chat["CopilotSidebar"]
-    Chat --> Runtime["/api/copilotkit · BuiltInAgent"]
-    Runtime --> ServerTools["Server tools"]
-    Chat --> FrontendTools["Frontend tools + HITL"]
+    Chat --> Bridge["/api/copilotkit · HttpAgent bridge"]
+    Bridge -- "AG-UI (SSE)" --> Agent["Pydantic AI agent (backend, :8000/agui)"]
+    Agent --> Tools["6 catalog tools"]
+    Tools --> Domain["backend domain layer (Python)"]
+    Chat --> FrontendTools["Frontend tools + HITL (browser)"]
     FrontendTools --> UI
-    ServerTools --> Services["src/lib/services.ts"]
-    FrontendTools --> Orders["src/lib/orders.ts (seed history)"]
-    UI --> Services
-    UI --> Orders
-    Orders --> Users["src/lib/users.ts (personas)"]
-    Services --> Catalog["src/lib/catalog.ts (61 products)"]
+    FrontendTools -- REST --> API["backend REST API (/api/…)"]
+    UI -- "orders, profiles" --> API
+    API --> Domain
+    Domain --> DB[("SQLite: products · users · orders")]
+    Seed["data/*.json (shared seed)"] --> DB
+    Seed --> ClientCatalog["src/lib/catalog.ts (bundled)"]
+    ClientCatalog --> UI
     BrowserAgent["Browser agent"] -. optional .-> WebMCP["navigator.modelContext tools"]
     WebMCP --> UI
 ```
 
-## Domain Layer
+## Data Ownership
 
-- `src/lib/types.ts` — `Product`, `Compat` (socket, memory type, watts, GPU length, case clearance), `CartLine`, `SearchFilters`, `CheckoutDetails`, `Order` (+ `userId`/`status`/`deliveredAt`), `UserProfile`, `PersonaId`, `ReturnEligibility`, `OwnedPart`.
-- `src/lib/catalog.ts` — the product array (61) plus `featuredIds` and `categoryMeta`. No I/O.
-- `src/lib/services.ts` — pure functions: `searchProducts`, `getAlternatives`, `checkCompatibility` (optionally cross-order via `owned`), `recommendPcBuild`, `recommendGamingSetup`, cart math, `formatDate`, and `productSummary` (compact shape that keeps agent payloads small).
-- `src/lib/users.ts` — three mock personas + `guest`. Static seed data (demo-only; ships in the client bundle).
-- `src/lib/orders.ts` — seed order history (relative days materialized once at module load), `getOrdersFor` (paginated), `getOrderDetail`, `returnEligibility` (computed), `ownedHardwareProfile` (derived ≤6-entry profile).
+| Data | Source of truth | How each side gets it |
+|---|---|---|
+| Product catalog (61 products) | `data/catalog.json` (static seed) | Next.js imports it (static generation, instant UI); backend seeds SQLite from it at startup |
+| Demo personas | `data/users.json` (static seed) | Same dual consumption (demo-only: personas ship in the client bundle) |
+| **Orders** (history + newly placed) | **Backend SQLite only** | Storefront and agent tools read/write over REST; nothing order-related is stored client-side anymore |
 
-Everything is deterministic and runs identically on the server (route handler, prerendered pages) and in the browser (client components, frontend tools).
+Seeded demo orders (`VLT-1xxx`/`VLT-2xxx`) are regenerated with fresh relative dates on every backend startup, so the demo always shows an open return window, a freshly closed one, and an in-transit order. Orders placed through the UI/chat persist across restarts.
+
+## Domain Layer (backend)
+
+`backend/src/voltti_backend/domain/` is a faithful Python port of the original TypeScript logic:
+
+- `catalog.py` — `search_products`, `get_alternatives`, `product_summary` (compact shape that keeps agent payloads small).
+- `compat.py` — `check_compatibility`: CPU socket vs motherboard, memory generation, GPU length vs case, PSU headroom, stock; optionally cross-order via `owned` with per-purchase attribution.
+- `builds.py` — `recommend_pc_build` (budget-share allocator, platform-consistent), `recommend_gaming_setup`.
+- `orders.py` — `return_eligibility` (computed, never reasoned), paginated summaries, order detail, `owned_hardware_profile` (derived ≤6-entry profile), order-number generation.
+- `format.py` — byte-identical `formatPrice`/`formatDate` ports (the strings are embedded in tool results).
+
+**Parity is enforced, not assumed**: `scripts/generate-parity-fixtures.ts` runs the TypeScript implementation over a fixed input matrix and `backend/tests/test_parity.py` asserts the Python port produces identical output — ids, totals, and exact strings. Regenerate fixtures whenever `src/lib/services.ts` changes.
+
+The storefront keeps a client-side copy of search/compat helpers (`src/lib/services.ts`) for instant listing filters, the compare tray, and the HITL safety net — operating on the same shared catalog JSON and covered by the same fixtures.
 
 ## Customer Memory & Identity
 
 Four decisions shape how customer data reaches the agent:
 
-1. **Identity-scoped data goes through frontend tools, not server tools.** `getMyOrders`/`getReturnInfo` read the active persona client-side, so identity is never a model-supplied `userId` (the anti-pattern real systems must avoid). Catalog/compat tools stay server-side because they're user-independent. *Production carry-over: identity resolved by infrastructure, never the model.*
-2. **Owned hardware is a derived profile in context; raw orders stay behind tools.** Proactive knowledge (the agent must spontaneously catch a conflict) must be always-on, so it's a bounded ≤6-entry profile. Reactive knowledge (order history, returns) is paginated behind tools. Derive small stable facts for context; paginate everything else; never echo raw history.
+1. **Identity-scoped data goes through frontend tools, not agent tools.** `getMyOrders`/`getReturnInfo` read the active persona client-side and call the backend REST API (`/api/users/{persona}/orders/…`) — identity is never a model-supplied `userId`. Catalog/compat tools live in the agent because they're user-independent. *Production carry-over: identity resolved by infrastructure (session → API), never the model.*
+2. **Owned hardware is a derived profile in context; raw orders stay behind tools.** The backend computes the bounded ≤6-entry profile (`/api/users/{persona}/agent-profile`); the frontend publishes it via `useAgentContext`. Reactive knowledge (order history, returns) is paginated behind tools.
 3. **The saved address never transits the model.** `prefillCheckout(useSavedAddress)` copies it straight into checkout state; context carries only `hasSavedAddress: true`.
-4. **Returns are computed, never reasoned.** `returnEligibility()` returns an explicit deadline; the prompt forbids model date math. The `proposeCartUpdate` card additionally runs a client-side compat safety net so a conflict shows at approval time regardless of model diligence.
+4. **Returns are computed, never reasoned.** `return_eligibility()` returns an explicit deadline; the prompt forbids model date math. The `proposeCartUpdate` card additionally runs a client-side compat safety net so a conflict shows at approval time regardless of model diligence.
 
 ## Access Path 1: Storefront UI
 
-Routes in `src/app/`: `/` (hero, category tiles, top deals, featured), `/c/[slug]` for 8 categories, `/deals`, `/search`, `/product/[id]`, `/cart`, `/checkout`. Category and product pages are statically generated from the catalog.
+Routes in `src/app/`: `/` (hero, category tiles, top deals, featured), `/c/[slug]` for 8 categories, `/deals`, `/search`, `/product/[id]`, `/cart`, `/checkout`, `/account`. Category and product pages are statically generated from the shared catalog JSON.
 
-Listings are rendered by `CatalogBrowser` (`src/components/catalog-browser.tsx`). **The URL query string is the source of truth for filter state** — `q`, `max`, `brands`, `deals`, `stock`, `sort`. Sidebar clicks write params with `router.replace`; the agent's `browseCatalog` tool writes the same params with `router.push`. Both produce identical, shareable listing state.
+Listings are rendered by `CatalogBrowser` (`src/components/catalog-browser.tsx`). **The URL query string is the source of truth for filter state** — `q`, `max`, `brands`, `deals`, `stock`, `sort`. Sidebar clicks write params with `router.replace`; the agent's `browseCatalog` tool writes the same params with `router.push`.
+
+Order placement (`shop.placeOrder`) POSTs to `/api/orders`; the `/account` page and order tools read back from the backend.
 
 ## Access Path 2: The Agent
 
-- `src/app/api/copilotkit/route.ts` — `CopilotRuntime` + `BuiltInAgent` (model from `COPILOTKIT_MODEL`) with six server tools that wrap `services.ts`, and **system prompt v2** (personality, novice/expert calibration, per-flow playbooks, guardrails).
-- `src/components/copilot/shopping-assistant.tsx` — the client half: `CopilotSidebar`, `useAgentContext` (derived/bounded: user, owned-hardware profile, path, cart, comparison ids, checkout completeness), frontend tools that steer the UI (incl. identity-scoped `getMyOrders`/`getReturnInfo`), human-in-the-loop approval cards (with the compat safety net), persona-aware suggestions, and `useRenderTool` renderers that turn tool results into cards in chat.
-- `src/app/providers.tsx` — wraps the app in `CopilotKitProvider` and `ShopProvider`.
+- `backend/src/voltti_backend/agent/prompt.md` — the system prompt (personality, novice/expert calibration, per-flow playbooks, guardrails). **Edit this file to change agent behavior; no application code involved.**
+- `backend/src/voltti_backend/agent/agent.py` — the Pydantic AI agent: model from `AGENT_MODEL`/`COPILOTKIT_MODEL` env, six catalog tools (names unchanged, so the storefront's generative-UI renderers keep working), and a dynamic instructions function that injects the live app context.
+- `backend/src/voltti_backend/main.py` — the AG-UI endpoint (`POST /agui`). One subtlety: the AG-UI adapter does not surface `RunAgentInput.context` (what `useAgentContext` sends) by itself, so the endpoint extracts it from the request body into per-request deps. `UsageLimits(request_limit=10)` mirrors the old `maxSteps: 10`.
+- `src/app/api/copilotkit/route.ts` — a thin bridge: `CopilotRuntime` + `HttpAgent` (from `@ag-ui/client`) pointing at `AGENT_URL`, with `ExperimentalEmptyAdapter` (no LLM calls happen in Next.js anymore).
+- `src/components/copilot/shopping-assistant.tsx` — the client half: `CopilotSidebar`, `useAgentContext` (derived/bounded: user, owned-hardware profile from the backend, path, cart, comparison ids, checkout completeness), frontend tools that steer the UI (incl. identity-scoped `getMyOrders`/`getReturnInfo` backed by REST), human-in-the-loop approval cards (with the compat safety net), persona-aware suggestions, and `useRenderTool` renderers that turn tool results into cards in chat.
 
 See [agent-contract.md](agent-contract.md) for the full tool surface and rules.
 
@@ -57,15 +78,14 @@ See [agent-contract.md](agent-contract.md) for the full tool surface and rules.
 
 Client state lives in `ShopProvider` (`src/lib/shop-context.tsx`), accessed via `useShop()`:
 
-- **Cart** — persisted to localStorage under `voltti.cart.v1`; hydration is guarded by a `hydrated` flag to avoid SSR mismatches.
+- **Cart** — persisted to localStorage under `voltti.cart.v1`; hydration is guarded by a `hydrated` flag to avoid SSR mismatches. The cart is pre-transactional UI state, so it stays client-side.
 - **Active persona** — `activeUser`/`personaId`, persisted under `voltti.user.v1`. `setActiveUser` keeps the cart but clears highlights/compare and resets the checkout draft to the persona's (non-PII) defaults.
-- **Session orders** — orders placed this session, under `voltti.session-orders.v1`, merged with the seed history for `/account` and `getMyOrders`.
 - **Compare selection** (max 4) and comparison-modal visibility.
 - **Highlighted product ids** — set by the agent to draw attention in listings.
 - **Checkout draft** — partial `CheckoutDetails`, edited by the form, the agent's `prefillCheckout`, and `applySavedAddress` (the shared code path for the checkout "Use saved address" button and `prefillCheckout(useSavedAddress)`).
-- **Last order** — set by `placeOrder`, which stamps the active persona, generates a fake order number, and clears the cart.
+- **Last order** — set by `placeOrder` after the backend confirms; placing an order POSTs to the backend and clears the cart.
 
-Listing filter state deliberately does *not* live here — it lives in the URL (above).
+Orders are **not** client state anymore (the old `voltti.session-orders.v1` localStorage key is gone) — the backend DB owns them. Listing filter state lives in the URL (above).
 
 ## WebMCP (Progressive Enhancement)
 
@@ -73,4 +93,4 @@ Listing filter state deliberately does *not* live here — it lives in the URL (
 
 ## Deployment
 
-The Dockerfile builds the Next app and runs `next start` on port 3000; `docker-compose.yml` passes the model and provider keys as environment variables.
+`docker-compose.yml` runs both services: the backend (uv image, port 8000, SQLite in a volume-less demo configuration) and the storefront (Node image, port 3000) wired together via `AGENT_URL`. For dev, `./scripts/dev.sh` runs both with reload.

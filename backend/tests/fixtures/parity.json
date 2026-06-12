@@ -1,0 +1,1708 @@
+{
+  "formatPrice": [
+    {
+      "input": 0,
+      "output": "0 €"
+    },
+    {
+      "input": 1,
+      "output": "1 €"
+    },
+    {
+      "input": 49.9,
+      "output": "50 €"
+    },
+    {
+      "input": 199,
+      "output": "199 €"
+    },
+    {
+      "input": 649,
+      "output": "649 €"
+    },
+    {
+      "input": 1234.56,
+      "output": "1 235 €"
+    },
+    {
+      "input": 1500,
+      "output": "1 500 €"
+    },
+    {
+      "input": 2999,
+      "output": "2 999 €"
+    },
+    {
+      "input": 12345,
+      "output": "12 345 €"
+    }
+  ],
+  "formatDate": [
+    {
+      "input": "2026-05-27T10:30:00.000Z",
+      "output": "27 May 2026"
+    },
+    {
+      "input": "2026-01-02T00:00:00.000Z",
+      "output": "2 Jan 2026"
+    },
+    {
+      "input": "2025-12-31T23:59:59.000Z",
+      "output": "1 Jan 2026"
+    }
+  ],
+  "searchProducts": [
+    {
+      "input": {},
+      "output": [
+        "samsung-990-pro-2tb",
+        "ryzen-7-7800x3d",
+        "philips-hue-starter-kit",
+        "sony-wh-1000xm5",
+        "iphone-16-pro",
+        "legion-pro-5-16",
+        "lg-ultragear-27gs75q",
+        "pixel-9a",
+        "rtx-4060",
+        "zenbook-14-oled",
+        "hp-omen-35l",
+        "nothing-phone-3a",
+        "ryzen-7-9800x3d",
+        "macbook-air-13-m4",
+        "logitech-mx-master-3s",
+        "corsair-vengeance-32gb-ddr5",
+        "corsair-rm850e",
+        "logitech-g-pro-x-superlight-2",
+        "airpods-pro-2",
+        "rtx-5090",
+        "tapo-p115-smart-plug",
+        "kingston-fury-beast-16gb-ddr4",
+        "wd-black-sn770-1tb",
+        "bequiet-pure-power-12m-650",
+        "anker-737-gan-charger",
+        "jbl-flip-6",
+        "ryzen-5-7600",
+        "msi-b650-tomahawk",
+        "core-i5-14600k",
+        "dell-ultrasharp-u2723qe",
+        "rx-9070-xt",
+        "iphone-16",
+        "pixel-9-pro",
+        "rtx-5080",
+        "nzxt-player-three",
+        "echo-dot-5",
+        "nzxt-h5-flow",
+        "hyperx-cloud-iii",
+        "keychron-k8-pro",
+        "msi-z790-tomahawk",
+        "asus-rog-strix-x870-a",
+        "core-i7-14700k",
+        "galaxy-s25",
+        "oneplus-13",
+        "thinkpad-x1-carbon-g12",
+        "tplink-archer-txe75e",
+        "nest-hub-2",
+        "razer-blackwidow-v4",
+        "fractal-terra-itx",
+        "steelseries-arctis-nova-7",
+        "samsung-odyssey-g7-32",
+        "rog-strix-g16",
+        "legion-tower-5",
+        "asrock-b760m-pro-rs",
+        "aoc-24g4x",
+        "rtx-5060-ti",
+        "dell-xps-13",
+        "acer-nitro-v-15",
+        "msi-codex-r2",
+        "galaxy-s25-ultra",
+        "rtx-5070"
+      ]
+    },
+    {
+      "input": {
+        "query": "noise cancelling headphones"
+      },
+      "output": [
+        "sony-wh-1000xm5"
+      ]
+    },
+    {
+      "input": {
+        "query": "rtx 5070"
+      },
+      "output": [
+        "hp-omen-35l",
+        "bequiet-pure-power-12m-650",
+        "rx-9070-xt",
+        "rtx-5070"
+      ]
+    },
+    {
+      "input": {
+        "query": "gaming laptop",
+        "maxPrice": 1500
+      },
+      "output": [
+        "rog-strix-g16",
+        "acer-nitro-v-15"
+      ]
+    },
+    {
+      "input": {
+        "category": "phones",
+        "maxPrice": 500,
+        "dealsOnly": true
+      },
+      "output": [
+        "pixel-9a",
+        "nothing-phone-3a"
+      ]
+    },
+    {
+      "input": {
+        "category": "gaming"
+      },
+      "output": [
+        "samsung-990-pro-2tb",
+        "ryzen-7-7800x3d",
+        "legion-pro-5-16",
+        "lg-ultragear-27gs75q",
+        "rtx-4060",
+        "hp-omen-35l",
+        "ryzen-7-9800x3d",
+        "corsair-vengeance-32gb-ddr5",
+        "corsair-rm850e",
+        "logitech-g-pro-x-superlight-2",
+        "rtx-5090",
+        "wd-black-sn770-1tb",
+        "ryzen-5-7600",
+        "msi-b650-tomahawk",
+        "core-i5-14600k",
+        "rx-9070-xt",
+        "rtx-5080",
+        "nzxt-player-three",
+        "nzxt-h5-flow",
+        "hyperx-cloud-iii",
+        "msi-z790-tomahawk",
+        "asus-rog-strix-x870-a",
+        "core-i7-14700k",
+        "razer-blackwidow-v4",
+        "steelseries-arctis-nova-7",
+        "samsung-odyssey-g7-32",
+        "rog-strix-g16",
+        "legion-tower-5",
+        "aoc-24g4x",
+        "rtx-5060-ti",
+        "acer-nitro-v-15",
+        "msi-codex-r2",
+        "rtx-5070"
+      ]
+    },
+    {
+      "input": {
+        "category": "components",
+        "brands": [
+          "AMD",
+          "MSI"
+        ]
+      },
+      "output": [
+        "ryzen-7-7800x3d",
+        "rtx-4060",
+        "ryzen-7-9800x3d",
+        "ryzen-5-7600",
+        "msi-b650-tomahawk",
+        "msi-z790-tomahawk",
+        "rtx-5070"
+      ]
+    },
+    {
+      "input": {
+        "category": "monitors",
+        "inStockOnly": true,
+        "sort": "price-asc"
+      },
+      "output": [
+        "aoc-24g4x",
+        "lg-ultragear-27gs75q",
+        "dell-ultrasharp-u2723qe",
+        "samsung-odyssey-g7-32"
+      ]
+    },
+    {
+      "input": {
+        "query": "ddr5",
+        "sort": "price-desc"
+      },
+      "output": [
+        "nzxt-player-three",
+        "hp-omen-35l",
+        "thinkpad-x1-carbon-g12",
+        "legion-pro-5-16",
+        "legion-tower-5",
+        "rog-strix-g16",
+        "dell-xps-13",
+        "zenbook-14-oled",
+        "msi-codex-r2",
+        "acer-nitro-v-15",
+        "ryzen-7-9800x3d",
+        "core-i7-14700k",
+        "ryzen-7-7800x3d",
+        "asus-rog-strix-x870-a",
+        "core-i5-14600k",
+        "msi-z790-tomahawk",
+        "ryzen-5-7600",
+        "msi-b650-tomahawk",
+        "asrock-b760m-pro-rs",
+        "corsair-vengeance-32gb-ddr5",
+        "kingston-fury-beast-16gb-ddr4"
+      ]
+    },
+    {
+      "input": {
+        "category": "audio",
+        "sort": "rating"
+      },
+      "output": [
+        "sony-wh-1000xm5",
+        "airpods-pro-2",
+        "jbl-flip-6",
+        "hyperx-cloud-iii",
+        "steelseries-arctis-nova-7"
+      ]
+    },
+    {
+      "input": {
+        "tags": [
+          "gaming"
+        ],
+        "category": "laptops",
+        "inStockOnly": true,
+        "sort": "price-desc"
+      },
+      "output": [
+        "legion-pro-5-16",
+        "rog-strix-g16",
+        "acer-nitro-v-15"
+      ]
+    },
+    {
+      "input": {
+        "query": "headset",
+        "tags": [
+          "gaming"
+        ],
+        "maxPrice": 200,
+        "inStockOnly": true
+      },
+      "output": [
+        "hyperx-cloud-iii",
+        "steelseries-arctis-nova-7"
+      ]
+    },
+    {
+      "input": {
+        "category": "accessories",
+        "tags": [
+          "gaming",
+          "mouse"
+        ],
+        "maxPrice": 120,
+        "inStockOnly": true
+      },
+      "output": []
+    },
+    {
+      "input": {
+        "minPrice": 1000,
+        "sort": "price-asc"
+      },
+      "output": [
+        "pixel-9-pro",
+        "iphone-16-pro",
+        "macbook-air-13-m4",
+        "rtx-5080",
+        "dell-xps-13",
+        "galaxy-s25-ultra",
+        "rog-strix-g16",
+        "legion-tower-5",
+        "legion-pro-5-16",
+        "thinkpad-x1-carbon-g12",
+        "hp-omen-35l",
+        "nzxt-player-three",
+        "rtx-5090"
+      ]
+    }
+  ],
+  "searchCatalogTool": [
+    {
+      "input": {},
+      "output": {
+        "totalMatches": 61,
+        "products": [
+          {
+            "id": "samsung-990-pro-2tb",
+            "name": "Samsung 990 Pro 2TB NVMe SSD",
+            "brand": "Samsung",
+            "category": "components",
+            "subcategory": "ssd",
+            "price": 159,
+            "originalPrice": 199,
+            "inStock": true,
+            "stock": 37,
+            "rating": 4.9,
+            "tags": [
+              "storage",
+              "ssd",
+              "nvme",
+              "samsung",
+              "2tb",
+              "gen4",
+              "gaming"
+            ],
+            "blurb": "The benchmark Gen4 NVMe drive — 7450 MB/s and class-leading endurance, on sale."
+          },
+          {
+            "id": "ryzen-7-7800x3d",
+            "name": "AMD Ryzen 7 7800X3D",
+            "brand": "AMD",
+            "category": "components",
+            "subcategory": "cpu",
+            "price": 349,
+            "originalPrice": 429,
+            "inStock": true,
+            "stock": 21,
+            "rating": 4.9,
+            "tags": [
+              "cpu",
+              "amd",
+              "ryzen",
+              "am5",
+              "gaming",
+              "x3d",
+              "ddr5"
+            ],
+            "blurb": "The previous gaming king at a serious discount — still phenomenal in every title.",
+            "compat": {
+              "socket": "AM5",
+              "memoryType": "DDR5",
+              "drawWatts": 120
+            }
+          },
+          {
+            "id": "philips-hue-starter-kit",
+            "name": "Philips Hue White & Color Starter Kit",
+            "brand": "Philips",
+            "category": "smart-home",
+            "subcategory": "smart-lighting",
+            "price": 159,
+            "originalPrice": 199,
+            "inStock": true,
+            "stock": 19,
+            "rating": 4.8,
+            "tags": [
+              "smart-home",
+              "philips",
+              "hue",
+              "lighting",
+              "rgb",
+              "matter",
+              "zigbee"
+            ],
+            "blurb": "Three colour-changing bulbs and the Hue Bridge — everything to start smart lighting."
+          },
+          {
+            "id": "sony-wh-1000xm5",
+            "name": "Sony WH-1000XM5",
+            "brand": "Sony",
+            "category": "audio",
+            "subcategory": "anc-headphones",
+            "price": 299,
+            "originalPrice": 369,
+            "inStock": true,
+            "stock": 23,
+            "rating": 4.8,
+            "tags": [
+              "headphones",
+              "sony",
+              "anc",
+              "wireless",
+              "bluetooth",
+              "travel"
+            ],
+            "blurb": "The industry-standard noise cancellers, now at their best price yet."
+          },
+          {
+            "id": "iphone-16-pro",
+            "name": "Apple iPhone 16 Pro 256GB",
+            "brand": "Apple",
+            "category": "phones",
+            "subcategory": "flagship-phone",
+            "price": 1199,
+            "originalPrice": 1329,
+            "inStock": true,
+            "stock": 24,
+            "rating": 4.8,
+            "tags": [
+              "apple",
+              "iphone",
+              "ios",
+              "5g",
+              "camera",
+              "titanium"
+            ],
+            "blurb": "Apple's titanium flagship with the A18 Pro chip and a pro-grade camera system."
+          },
+          {
+            "id": "legion-pro-5-16",
+            "name": "Lenovo Legion Pro 5 16 (RTX 4070)",
+            "brand": "Lenovo",
+            "category": "laptops",
+            "subcategory": "gaming-laptop",
+            "price": 1599,
+            "originalPrice": 1899,
+            "inStock": true,
+            "stock": 12,
+            "rating": 4.7,
+            "tags": [
+              "gaming",
+              "lenovo",
+              "legion",
+              "rtx-4070",
+              "240hz",
+              "rgb"
+            ],
+            "blurb": "A 16-inch gaming powerhouse pairing the RTX 4070 with a 240 Hz QHD+ display."
+          },
+          {
+            "id": "lg-ultragear-27gs75q",
+            "name": "LG UltraGear 27GS75Q",
+            "brand": "LG",
+            "category": "monitors",
+            "subcategory": "gaming-monitor",
+            "price": 249,
+            "originalPrice": 299,
+            "inStock": true,
+            "stock": 26,
+            "rating": 4.6,
+            "tags": [
+              "monitor",
+              "gaming",
+              "lg",
+              "ultragear",
+              "1440p",
+              "180hz",
+              "ips",
+              "g-sync"
+            ],
+            "blurb": "The 1440p/180 Hz gaming sweet spot with a fast IPS panel — heavily discounted."
+          },
+          {
+            "id": "pixel-9a",
+            "name": "Google Pixel 9a 128GB",
+            "brand": "Google",
+            "category": "phones",
+            "subcategory": "budget-phone",
+            "price": 449,
+            "originalPrice": 549,
+            "inStock": true,
+            "stock": 42,
+            "rating": 4.6,
+            "tags": [
+              "google",
+              "pixel",
+              "android",
+              "5g",
+              "budget",
+              "camera"
+            ],
+            "blurb": "Flagship-grade camera and Tensor G4 smarts at a mid-range price."
+          }
+        ]
+      }
+    },
+    {
+      "input": {
+        "query": "noise cancelling headphones"
+      },
+      "output": {
+        "totalMatches": 1,
+        "products": [
+          {
+            "id": "sony-wh-1000xm5",
+            "name": "Sony WH-1000XM5",
+            "brand": "Sony",
+            "category": "audio",
+            "subcategory": "anc-headphones",
+            "price": 299,
+            "originalPrice": 369,
+            "inStock": true,
+            "stock": 23,
+            "rating": 4.8,
+            "tags": [
+              "headphones",
+              "sony",
+              "anc",
+              "wireless",
+              "bluetooth",
+              "travel"
+            ],
+            "blurb": "The industry-standard noise cancellers, now at their best price yet."
+          }
+        ]
+      }
+    },
+    {
+      "input": {
+        "query": "rtx 5070"
+      },
+      "output": {
+        "totalMatches": 4,
+        "products": [
+          {
+            "id": "hp-omen-35l",
+            "name": "HP Omen 35L (RTX 5070)",
+            "brand": "HP",
+            "category": "desktops",
+            "subcategory": "gaming-desktop",
+            "price": 1899,
+            "originalPrice": 2199,
+            "inStock": true,
+            "stock": 8,
+            "rating": 4.5,
+            "tags": [
+              "gaming",
+              "prebuilt",
+              "hp",
+              "omen",
+              "rtx-5070",
+              "rgb"
+            ],
+            "blurb": "A high-refresh 1440p machine with the new RTX 5070 — currently on sale."
+          },
+          {
+            "id": "bequiet-pure-power-12m-650",
+            "name": "be quiet! Pure Power 12 M 650W",
+            "brand": "be quiet!",
+            "category": "components",
+            "subcategory": "psu",
+            "price": 89,
+            "inStock": true,
+            "stock": 31,
+            "rating": 4.7,
+            "tags": [
+              "psu",
+              "be-quiet",
+              "650w",
+              "gold",
+              "modular",
+              "atx3",
+              "silent"
+            ],
+            "blurb": "Whisper-quiet 650 W Gold power — ideal for mid-range builds and efficient GPUs.",
+            "compat": {
+              "psuWatts": 650
+            }
+          },
+          {
+            "id": "rx-9070-xt",
+            "name": "Sapphire Pulse Radeon RX 9070 XT 16GB",
+            "brand": "Sapphire",
+            "category": "components",
+            "subcategory": "gpu",
+            "price": 689,
+            "inStock": true,
+            "stock": 12,
+            "rating": 4.7,
+            "tags": [
+              "gpu",
+              "amd",
+              "radeon",
+              "rx-9070-xt",
+              "rdna4",
+              "gaming",
+              "1440p",
+              "4k",
+              "fsr4"
+            ],
+            "blurb": "AMD's RDNA 4 challenger: RTX 5070-beating performance with 16 GB of VRAM.",
+            "compat": {
+              "drawWatts": 304,
+              "gpuLengthMm": 287
+            }
+          },
+          {
+            "id": "rtx-5070",
+            "name": "MSI Ventus GeForce RTX 5070 12GB",
+            "brand": "MSI",
+            "category": "components",
+            "subcategory": "gpu",
+            "price": 649,
+            "inStock": false,
+            "stock": 0,
+            "rating": 4.6,
+            "tags": [
+              "gpu",
+              "nvidia",
+              "rtx-5070",
+              "blackwell",
+              "gaming",
+              "1440p",
+              "dlss4",
+              "ray-tracing"
+            ],
+            "blurb": "The 1440p Blackwell sweet spot with DLSS 4 — selling out as fast as it arrives.",
+            "compat": {
+              "drawWatts": 250,
+              "gpuLengthMm": 232
+            }
+          }
+        ]
+      }
+    },
+    {
+      "input": {
+        "query": "gaming laptop",
+        "maxPrice": 1500
+      },
+      "output": {
+        "totalMatches": 2,
+        "products": [
+          {
+            "id": "rog-strix-g16",
+            "name": "ASUS ROG Strix G16 (RTX 4060)",
+            "brand": "ASUS",
+            "category": "laptops",
+            "subcategory": "gaming-laptop",
+            "price": 1399,
+            "inStock": true,
+            "stock": 16,
+            "rating": 4.5,
+            "tags": [
+              "gaming",
+              "asus",
+              "rog",
+              "rtx-4060",
+              "165hz",
+              "rgb"
+            ],
+            "blurb": "ROG styling and an RTX 4060 make this 16-incher a reliable 1080p/1440p gamer."
+          },
+          {
+            "id": "acer-nitro-v-15",
+            "name": "Acer Nitro V 15 (RTX 4050)",
+            "brand": "Acer",
+            "category": "laptops",
+            "subcategory": "gaming-laptop",
+            "price": 899,
+            "inStock": true,
+            "stock": 22,
+            "rating": 4.3,
+            "tags": [
+              "gaming",
+              "acer",
+              "nitro",
+              "rtx-4050",
+              "budget",
+              "144hz"
+            ],
+            "blurb": "Entry-level gaming done right: RTX 4050 graphics and a 144 Hz display under €900."
+          }
+        ]
+      }
+    },
+    {
+      "input": {
+        "category": "phones",
+        "maxPrice": 500,
+        "dealsOnly": true
+      },
+      "output": {
+        "totalMatches": 2,
+        "products": [
+          {
+            "id": "pixel-9a",
+            "name": "Google Pixel 9a 128GB",
+            "brand": "Google",
+            "category": "phones",
+            "subcategory": "budget-phone",
+            "price": 449,
+            "originalPrice": 549,
+            "inStock": true,
+            "stock": 42,
+            "rating": 4.6,
+            "tags": [
+              "google",
+              "pixel",
+              "android",
+              "5g",
+              "budget",
+              "camera"
+            ],
+            "blurb": "Flagship-grade camera and Tensor G4 smarts at a mid-range price."
+          },
+          {
+            "id": "nothing-phone-3a",
+            "name": "Nothing Phone (3a) 128GB",
+            "brand": "Nothing",
+            "category": "phones",
+            "subcategory": "budget-phone",
+            "price": 329,
+            "originalPrice": 379,
+            "inStock": true,
+            "stock": 38,
+            "rating": 4.4,
+            "tags": [
+              "nothing",
+              "android",
+              "5g",
+              "budget",
+              "glyph",
+              "design"
+            ],
+            "blurb": "The transparent-design mid-ranger with Glyph lights and a clean Nothing OS experience."
+          }
+        ]
+      }
+    },
+    {
+      "input": {
+        "category": "gaming"
+      },
+      "output": {
+        "totalMatches": 33,
+        "products": [
+          {
+            "id": "samsung-990-pro-2tb",
+            "name": "Samsung 990 Pro 2TB NVMe SSD",
+            "brand": "Samsung",
+            "category": "components",
+            "subcategory": "ssd",
+            "price": 159,
+            "originalPrice": 199,
+            "inStock": true,
+            "stock": 37,
+            "rating": 4.9,
+            "tags": [
+              "storage",
+              "ssd",
+              "nvme",
+              "samsung",
+              "2tb",
+              "gen4",
+              "gaming"
+            ],
+            "blurb": "The benchmark Gen4 NVMe drive — 7450 MB/s and class-leading endurance, on sale."
+          },
+          {
+            "id": "ryzen-7-7800x3d",
+            "name": "AMD Ryzen 7 7800X3D",
+            "brand": "AMD",
+            "category": "components",
+            "subcategory": "cpu",
+            "price": 349,
+            "originalPrice": 429,
+            "inStock": true,
+            "stock": 21,
+            "rating": 4.9,
+            "tags": [
+              "cpu",
+              "amd",
+              "ryzen",
+              "am5",
+              "gaming",
+              "x3d",
+              "ddr5"
+            ],
+            "blurb": "The previous gaming king at a serious discount — still phenomenal in every title.",
+            "compat": {
+              "socket": "AM5",
+              "memoryType": "DDR5",
+              "drawWatts": 120
+            }
+          },
+          {
+            "id": "legion-pro-5-16",
+            "name": "Lenovo Legion Pro 5 16 (RTX 4070)",
+            "brand": "Lenovo",
+            "category": "laptops",
+            "subcategory": "gaming-laptop",
+            "price": 1599,
+            "originalPrice": 1899,
+            "inStock": true,
+            "stock": 12,
+            "rating": 4.7,
+            "tags": [
+              "gaming",
+              "lenovo",
+              "legion",
+              "rtx-4070",
+              "240hz",
+              "rgb"
+            ],
+            "blurb": "A 16-inch gaming powerhouse pairing the RTX 4070 with a 240 Hz QHD+ display."
+          },
+          {
+            "id": "lg-ultragear-27gs75q",
+            "name": "LG UltraGear 27GS75Q",
+            "brand": "LG",
+            "category": "monitors",
+            "subcategory": "gaming-monitor",
+            "price": 249,
+            "originalPrice": 299,
+            "inStock": true,
+            "stock": 26,
+            "rating": 4.6,
+            "tags": [
+              "monitor",
+              "gaming",
+              "lg",
+              "ultragear",
+              "1440p",
+              "180hz",
+              "ips",
+              "g-sync"
+            ],
+            "blurb": "The 1440p/180 Hz gaming sweet spot with a fast IPS panel — heavily discounted."
+          },
+          {
+            "id": "rtx-4060",
+            "name": "MSI Ventus GeForce RTX 4060 8GB",
+            "brand": "MSI",
+            "category": "components",
+            "subcategory": "gpu",
+            "price": 269,
+            "originalPrice": 319,
+            "inStock": true,
+            "stock": 34,
+            "rating": 4.5,
+            "tags": [
+              "gpu",
+              "nvidia",
+              "rtx-4060",
+              "ada",
+              "gaming",
+              "1080p",
+              "dlss3",
+              "budget"
+            ],
+            "blurb": "The efficient 1080p workhorse with DLSS 3 — now at clearance pricing.",
+            "compat": {
+              "drawWatts": 115,
+              "gpuLengthMm": 240
+            }
+          },
+          {
+            "id": "hp-omen-35l",
+            "name": "HP Omen 35L (RTX 5070)",
+            "brand": "HP",
+            "category": "desktops",
+            "subcategory": "gaming-desktop",
+            "price": 1899,
+            "originalPrice": 2199,
+            "inStock": true,
+            "stock": 8,
+            "rating": 4.5,
+            "tags": [
+              "gaming",
+              "prebuilt",
+              "hp",
+              "omen",
+              "rtx-5070",
+              "rgb"
+            ],
+            "blurb": "A high-refresh 1440p machine with the new RTX 5070 — currently on sale."
+          },
+          {
+            "id": "ryzen-7-9800x3d",
+            "name": "AMD Ryzen 7 9800X3D",
+            "brand": "AMD",
+            "category": "components",
+            "subcategory": "cpu",
+            "price": 529,
+            "inStock": true,
+            "stock": 17,
+            "rating": 4.9,
+            "tags": [
+              "cpu",
+              "amd",
+              "ryzen",
+              "am5",
+              "gaming",
+              "x3d",
+              "ddr5"
+            ],
+            "blurb": "The fastest gaming CPU on the planet, thanks to second-gen 3D V-Cache.",
+            "compat": {
+              "socket": "AM5",
+              "memoryType": "DDR5",
+              "drawWatts": 120
+            }
+          },
+          {
+            "id": "corsair-vengeance-32gb-ddr5",
+            "name": "Corsair Vengeance 32GB (2x16GB) DDR5-6000 CL30",
+            "brand": "Corsair",
+            "category": "components",
+            "subcategory": "ram",
+            "price": 119,
+            "inStock": true,
+            "stock": 41,
+            "rating": 4.8,
+            "tags": [
+              "ram",
+              "corsair",
+              "ddr5",
+              "32gb",
+              "6000mhz",
+              "gaming",
+              "expo"
+            ],
+            "blurb": "The DDR5 sweet-spot kit: 6000 MT/s CL30 with AMD EXPO and Intel XMP profiles.",
+            "compat": {
+              "memoryType": "DDR5"
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "getAlternatives": [
+    {
+      "input": "rtx-5070",
+      "output": [
+        "rx-9070-xt",
+        "ryzen-7-9800x3d",
+        "rtx-5060-ti",
+        "core-i7-14700k"
+      ]
+    },
+    {
+      "input": "ryzen-7-7800x3d",
+      "output": [
+        "asus-rog-strix-x870-a",
+        "core-i7-14700k",
+        "core-i5-14600k",
+        "rtx-4060"
+      ]
+    },
+    {
+      "input": "fractal-terra-itx",
+      "output": [
+        "nzxt-h5-flow"
+      ]
+    },
+    {
+      "input": "iphone-16",
+      "output": [
+        "galaxy-s25",
+        "oneplus-13",
+        "pixel-9-pro",
+        "iphone-16-pro"
+      ]
+    },
+    {
+      "input": "no-such-product",
+      "output": []
+    }
+  ],
+  "checkCompatibility": [
+    {
+      "input": {
+        "productIds": [
+          "ryzen-7-7800x3d",
+          "msi-b650-tomahawk",
+          "corsair-vengeance-32gb-ddr5"
+        ]
+      },
+      "output": {
+        "productIds": [
+          "ryzen-7-7800x3d",
+          "msi-b650-tomahawk",
+          "corsair-vengeance-32gb-ddr5"
+        ],
+        "compatible": true,
+        "warnings": [],
+        "notes": [
+          "Estimated component draw ≈ 270 W including the rest of the system."
+        ]
+      }
+    },
+    {
+      "input": {
+        "productIds": [
+          "core-i7-14700k",
+          "msi-b650-tomahawk"
+        ]
+      },
+      "output": {
+        "productIds": [
+          "core-i7-14700k",
+          "msi-b650-tomahawk"
+        ],
+        "compatible": false,
+        "warnings": [
+          "Intel Core i7-14700K uses socket LGA1700, but MSI MAG B650 Tomahawk WiFi is a AM5 board. These are not compatible."
+        ],
+        "notes": [
+          "Estimated component draw ≈ 275 W including the rest of the system.",
+          "No RAM kit selected yet."
+        ]
+      }
+    },
+    {
+      "input": {
+        "productIds": [
+          "core-i7-14700k"
+        ],
+        "owned": [
+          {
+            "productId": "msi-b650-tomahawk",
+            "orderNumber": "VLT-1002",
+            "orderedOn": "2026-05-27T00:00:00.000Z"
+          },
+          {
+            "productId": "corsair-vengeance-32gb-ddr5",
+            "orderNumber": "VLT-1002",
+            "orderedOn": "2026-05-27T00:00:00.000Z"
+          },
+          {
+            "productId": "ryzen-7-7800x3d",
+            "orderNumber": "VLT-1003",
+            "orderedOn": "2026-06-08T00:00:00.000Z"
+          },
+          {
+            "productId": "fractal-terra-itx",
+            "orderNumber": "VLT-1001",
+            "orderedOn": "2026-05-05T00:00:00.000Z"
+          },
+          {
+            "productId": "bequiet-pure-power-12m-650",
+            "orderNumber": "VLT-1001",
+            "orderedOn": "2026-05-05T00:00:00.000Z"
+          }
+        ]
+      },
+      "output": {
+        "productIds": [
+          "core-i7-14700k",
+          "msi-b650-tomahawk",
+          "corsair-vengeance-32gb-ddr5",
+          "ryzen-7-7800x3d",
+          "fractal-terra-itx",
+          "bequiet-pure-power-12m-650"
+        ],
+        "compatible": false,
+        "warnings": [
+          "Intel Core i7-14700K uses socket LGA1700, but MSI MAG B650 Tomahawk WiFi (from your order VLT-1002 on 27 May 2026) is a AM5 board. These are not compatible."
+        ],
+        "notes": [
+          "Estimated component draw ≈ 395 W including the rest of the system."
+        ]
+      }
+    },
+    {
+      "input": {
+        "productIds": [
+          "rtx-5090"
+        ],
+        "owned": [
+          {
+            "productId": "msi-b650-tomahawk",
+            "orderNumber": "VLT-1002",
+            "orderedOn": "2026-05-27T00:00:00.000Z"
+          },
+          {
+            "productId": "corsair-vengeance-32gb-ddr5",
+            "orderNumber": "VLT-1002",
+            "orderedOn": "2026-05-27T00:00:00.000Z"
+          },
+          {
+            "productId": "ryzen-7-7800x3d",
+            "orderNumber": "VLT-1003",
+            "orderedOn": "2026-06-08T00:00:00.000Z"
+          },
+          {
+            "productId": "fractal-terra-itx",
+            "orderNumber": "VLT-1001",
+            "orderedOn": "2026-05-05T00:00:00.000Z"
+          },
+          {
+            "productId": "bequiet-pure-power-12m-650",
+            "orderNumber": "VLT-1001",
+            "orderedOn": "2026-05-05T00:00:00.000Z"
+          }
+        ]
+      },
+      "output": {
+        "productIds": [
+          "rtx-5090",
+          "msi-b650-tomahawk",
+          "corsair-vengeance-32gb-ddr5",
+          "ryzen-7-7800x3d",
+          "fractal-terra-itx",
+          "bequiet-pure-power-12m-650"
+        ],
+        "compatible": false,
+        "warnings": [
+          "ASUS ROG Astral GeForce RTX 5090 32GB is 358 mm long, but Fractal Design Terra (Mini-ITX) (from your order VLT-1001 on 5 May 2026) fits GPUs up to 280 mm.",
+          "be quiet! Pure Power 12 M 650W (from your order VLT-1001 on 5 May 2026) (650 W) is tight for this build — recommended at least 1099 W for safe headroom."
+        ],
+        "notes": [
+          "Estimated component draw ≈ 845 W including the rest of the system."
+        ]
+      }
+    },
+    {
+      "input": {
+        "productIds": [
+          "rtx-5070",
+          "nzxt-h5-flow",
+          "corsair-rm850e"
+        ]
+      },
+      "output": {
+        "productIds": [
+          "rtx-5070",
+          "nzxt-h5-flow",
+          "corsair-rm850e"
+        ],
+        "compatible": false,
+        "warnings": [
+          "MSI Ventus GeForce RTX 5070 12GB is currently out of stock."
+        ],
+        "notes": [
+          "Estimated component draw ≈ 400 W including the rest of the system."
+        ]
+      }
+    },
+    {
+      "input": {
+        "productIds": [
+          "tplink-archer-txe75e"
+        ],
+        "owned": [
+          {
+            "productId": "msi-b650-tomahawk",
+            "orderNumber": "VLT-1002",
+            "orderedOn": "2026-05-27T00:00:00.000Z"
+          },
+          {
+            "productId": "corsair-vengeance-32gb-ddr5",
+            "orderNumber": "VLT-1002",
+            "orderedOn": "2026-05-27T00:00:00.000Z"
+          },
+          {
+            "productId": "ryzen-7-7800x3d",
+            "orderNumber": "VLT-1003",
+            "orderedOn": "2026-06-08T00:00:00.000Z"
+          },
+          {
+            "productId": "fractal-terra-itx",
+            "orderNumber": "VLT-1001",
+            "orderedOn": "2026-05-05T00:00:00.000Z"
+          },
+          {
+            "productId": "bequiet-pure-power-12m-650",
+            "orderNumber": "VLT-1001",
+            "orderedOn": "2026-05-05T00:00:00.000Z"
+          }
+        ]
+      },
+      "output": {
+        "productIds": [
+          "tplink-archer-txe75e",
+          "msi-b650-tomahawk",
+          "corsair-vengeance-32gb-ddr5",
+          "ryzen-7-7800x3d",
+          "fractal-terra-itx",
+          "bequiet-pure-power-12m-650"
+        ],
+        "compatible": true,
+        "warnings": [],
+        "notes": [
+          "Estimated component draw ≈ 270 W including the rest of the system.",
+          "Your MSI MAG B650 Tomahawk WiFi (from your order VLT-1002 on 27 May 2026) already has built-in Wi-Fi — the TP-Link Archer TXE75E Wi-Fi 6E PCIe Adapter may be unnecessary."
+        ]
+      }
+    },
+    {
+      "input": {
+        "productIds": [
+          "ryzen-7-7800x3d",
+          "msi-z790-tomahawk",
+          "corsair-vengeance-32gb-ddr5",
+          "rtx-5090",
+          "bequiet-pure-power-12m-650",
+          "fractal-terra-itx"
+        ]
+      },
+      "output": {
+        "productIds": [
+          "ryzen-7-7800x3d",
+          "msi-z790-tomahawk",
+          "corsair-vengeance-32gb-ddr5",
+          "rtx-5090",
+          "bequiet-pure-power-12m-650",
+          "fractal-terra-itx"
+        ],
+        "compatible": false,
+        "warnings": [
+          "AMD Ryzen 7 7800X3D uses socket AM5, but MSI MAG Z790 Tomahawk WiFi is a LGA1700 board. These are not compatible.",
+          "ASUS ROG Astral GeForce RTX 5090 32GB is 358 mm long, but Fractal Design Terra (Mini-ITX) fits GPUs up to 280 mm.",
+          "be quiet! Pure Power 12 M 650W (650 W) is tight for this build — recommended at least 1099 W for safe headroom."
+        ],
+        "notes": [
+          "Estimated component draw ≈ 845 W including the rest of the system."
+        ]
+      }
+    },
+    {
+      "input": {
+        "productIds": [
+          "iphone-16",
+          "airpods-pro-2"
+        ]
+      },
+      "output": {
+        "productIds": [
+          "iphone-16",
+          "airpods-pro-2"
+        ],
+        "compatible": true,
+        "warnings": [],
+        "notes": []
+      }
+    }
+  ],
+  "recommendPcBuild": [
+    {
+      "input": {
+        "budget": 800
+      },
+      "output": {
+        "ids": [
+          "ryzen-5-7600",
+          "msi-b650-tomahawk",
+          "corsair-vengeance-32gb-ddr5",
+          "rtx-4060",
+          "wd-black-sn770-1tb",
+          "bequiet-pure-power-12m-650",
+          "nzxt-h5-flow"
+        ],
+        "totalPrice": 1043,
+        "summary": "A AMD Ryzen 5 7600 + MSI Ventus GeForce RTX 4060 8GB build for modern AAA and competitive titles, targeting 800 €.",
+        "tradeoffs": [
+          "The build lands at 1 043 €, 243 € over budget — the GPU or CPU could be stepped down.",
+          "MSI Ventus GeForce RTX 4060 8GB is currently discounted, which stretches the budget further.",
+          "The AM5 platform has a long upgrade path for future CPUs."
+        ],
+        "compatibility": {
+          "productIds": [
+            "ryzen-5-7600",
+            "msi-b650-tomahawk",
+            "corsair-vengeance-32gb-ddr5",
+            "rtx-4060",
+            "wd-black-sn770-1tb",
+            "bequiet-pure-power-12m-650",
+            "nzxt-h5-flow"
+          ],
+          "compatible": true,
+          "warnings": [],
+          "notes": [
+            "Estimated component draw ≈ 330 W including the rest of the system."
+          ]
+        }
+      }
+    },
+    {
+      "input": {
+        "budget": 1200,
+        "cpuPlatform": "amd"
+      },
+      "output": {
+        "ids": [
+          "ryzen-5-7600",
+          "msi-b650-tomahawk",
+          "corsair-vengeance-32gb-ddr5",
+          "rtx-4060",
+          "wd-black-sn770-1tb",
+          "bequiet-pure-power-12m-650",
+          "nzxt-h5-flow"
+        ],
+        "totalPrice": 1043,
+        "summary": "A AMD Ryzen 5 7600 + MSI Ventus GeForce RTX 4060 8GB build for modern AAA and competitive titles, targeting 1 200 €.",
+        "tradeoffs": [
+          "Total 1 043 € leaves 157 € of the budget unspent.",
+          "MSI Ventus GeForce RTX 4060 8GB is currently discounted, which stretches the budget further.",
+          "The AM5 platform has a long upgrade path for future CPUs."
+        ],
+        "compatibility": {
+          "productIds": [
+            "ryzen-5-7600",
+            "msi-b650-tomahawk",
+            "corsair-vengeance-32gb-ddr5",
+            "rtx-4060",
+            "wd-black-sn770-1tb",
+            "bequiet-pure-power-12m-650",
+            "nzxt-h5-flow"
+          ],
+          "compatible": true,
+          "warnings": [],
+          "notes": [
+            "Estimated component draw ≈ 330 W including the rest of the system."
+          ]
+        }
+      }
+    },
+    {
+      "input": {
+        "budget": 1500
+      },
+      "output": {
+        "ids": [
+          "core-i5-14600k",
+          "msi-z790-tomahawk",
+          "corsair-vengeance-32gb-ddr5",
+          "rtx-5060-ti",
+          "wd-black-sn770-1tb",
+          "bequiet-pure-power-12m-650",
+          "nzxt-h5-flow"
+        ],
+        "totalPrice": 1383,
+        "summary": "A Intel Core i5-14600K + Gigabyte Windforce GeForce RTX 5060 Ti 16GB build for modern AAA and competitive titles, targeting 1 500 €.",
+        "tradeoffs": [
+          "Total 1 383 € leaves 117 € of the budget unspent."
+        ],
+        "compatibility": {
+          "productIds": [
+            "core-i5-14600k",
+            "msi-z790-tomahawk",
+            "corsair-vengeance-32gb-ddr5",
+            "rtx-5060-ti",
+            "wd-black-sn770-1tb",
+            "bequiet-pure-power-12m-650",
+            "nzxt-h5-flow"
+          ],
+          "compatible": true,
+          "warnings": [],
+          "notes": [
+            "Estimated component draw ≈ 455 W including the rest of the system."
+          ]
+        }
+      }
+    },
+    {
+      "input": {
+        "budget": 1500,
+        "cpuPlatform": "amd",
+        "games": [
+          "Counter-Strike 2",
+          "Baldur's Gate 3"
+        ]
+      },
+      "output": {
+        "ids": [
+          "ryzen-5-7600",
+          "msi-b650-tomahawk",
+          "corsair-vengeance-32gb-ddr5",
+          "rtx-5060-ti",
+          "wd-black-sn770-1tb",
+          "bequiet-pure-power-12m-650",
+          "nzxt-h5-flow"
+        ],
+        "totalPrice": 1253,
+        "summary": "A AMD Ryzen 5 7600 + Gigabyte Windforce GeForce RTX 5060 Ti 16GB build for Counter-Strike 2, Baldur's Gate 3, targeting 1 500 €.",
+        "tradeoffs": [
+          "Total 1 253 € leaves 247 € of the budget unspent.",
+          "The AM5 platform has a long upgrade path for future CPUs."
+        ],
+        "compatibility": {
+          "productIds": [
+            "ryzen-5-7600",
+            "msi-b650-tomahawk",
+            "corsair-vengeance-32gb-ddr5",
+            "rtx-5060-ti",
+            "wd-black-sn770-1tb",
+            "bequiet-pure-power-12m-650",
+            "nzxt-h5-flow"
+          ],
+          "compatible": true,
+          "warnings": [],
+          "notes": [
+            "Estimated component draw ≈ 395 W including the rest of the system."
+          ]
+        }
+      }
+    },
+    {
+      "input": {
+        "budget": 2000,
+        "cpuPlatform": "intel",
+        "brandPreference": [
+          "nvidia"
+        ]
+      },
+      "output": {
+        "ids": [
+          "core-i7-14700k",
+          "msi-z790-tomahawk",
+          "corsair-vengeance-32gb-ddr5",
+          "rtx-5060-ti",
+          "samsung-990-pro-2tb",
+          "corsair-rm850e",
+          "nzxt-h5-flow"
+        ],
+        "totalPrice": 1613,
+        "summary": "A Intel Core i7-14700K + Gigabyte Windforce GeForce RTX 5060 Ti 16GB build for modern AAA and competitive titles, targeting 2 000 €.",
+        "tradeoffs": [
+          "Total 1 613 € leaves 387 € of the budget unspent."
+        ],
+        "compatibility": {
+          "productIds": [
+            "core-i7-14700k",
+            "msi-z790-tomahawk",
+            "corsair-vengeance-32gb-ddr5",
+            "rtx-5060-ti",
+            "samsung-990-pro-2tb",
+            "corsair-rm850e",
+            "nzxt-h5-flow"
+          ],
+          "compatible": true,
+          "warnings": [],
+          "notes": [
+            "Estimated component draw ≈ 455 W including the rest of the system."
+          ]
+        }
+      }
+    },
+    {
+      "input": {
+        "budget": 3000,
+        "brandPreference": [
+          "nvidia"
+        ]
+      },
+      "output": {
+        "ids": [
+          "ryzen-7-9800x3d",
+          "asus-rog-strix-x870-a",
+          "corsair-vengeance-32gb-ddr5",
+          "rtx-5060-ti",
+          "samsung-990-pro-2tb",
+          "corsair-rm850e",
+          "fractal-terra-itx"
+        ],
+        "totalPrice": 1913,
+        "summary": "A AMD Ryzen 7 9800X3D + Gigabyte Windforce GeForce RTX 5060 Ti 16GB build for modern AAA and competitive titles, targeting 3 000 €.",
+        "tradeoffs": [
+          "Total 1 913 € leaves 1 087 € of the budget unspent.",
+          "The AM5 platform has a long upgrade path for future CPUs."
+        ],
+        "compatibility": {
+          "productIds": [
+            "ryzen-7-9800x3d",
+            "asus-rog-strix-x870-a",
+            "corsair-vengeance-32gb-ddr5",
+            "rtx-5060-ti",
+            "samsung-990-pro-2tb",
+            "corsair-rm850e",
+            "fractal-terra-itx"
+          ],
+          "compatible": true,
+          "warnings": [],
+          "notes": [
+            "Estimated component draw ≈ 450 W including the rest of the system."
+          ]
+        }
+      }
+    },
+    {
+      "input": {
+        "budget": 500
+      },
+      "output": {
+        "ids": [
+          "ryzen-5-7600",
+          "msi-b650-tomahawk",
+          "corsair-vengeance-32gb-ddr5",
+          "rtx-4060",
+          "wd-black-sn770-1tb",
+          "bequiet-pure-power-12m-650",
+          "nzxt-h5-flow"
+        ],
+        "totalPrice": 1043,
+        "summary": "A AMD Ryzen 5 7600 + MSI Ventus GeForce RTX 4060 8GB build for modern AAA and competitive titles, targeting 500 €.",
+        "tradeoffs": [
+          "The build lands at 1 043 €, 543 € over budget — the GPU or CPU could be stepped down.",
+          "MSI Ventus GeForce RTX 4060 8GB is currently discounted, which stretches the budget further.",
+          "The AM5 platform has a long upgrade path for future CPUs."
+        ],
+        "compatibility": {
+          "productIds": [
+            "ryzen-5-7600",
+            "msi-b650-tomahawk",
+            "corsair-vengeance-32gb-ddr5",
+            "rtx-4060",
+            "wd-black-sn770-1tb",
+            "bequiet-pure-power-12m-650",
+            "nzxt-h5-flow"
+          ],
+          "compatible": true,
+          "warnings": [],
+          "notes": [
+            "Estimated component draw ≈ 330 W including the rest of the system."
+          ]
+        }
+      }
+    }
+  ],
+  "recommendGamingSetup": [
+    {
+      "input": {
+        "budget": 1500
+      },
+      "output": {
+        "ids": [
+          "msi-codex-r2"
+        ],
+        "totalPrice": 999,
+        "summary": "MSI Codex R2 (RTX 4060) as the core system for modern competitive and AAA games, around 1 500 €.",
+        "tradeoffs": [
+          "A tower gives the best upgrade path; remember peripherals if you don't own any.",
+          "The full setup lands at 999 €, within budget."
+        ],
+        "warnings": [],
+        "alternatives": [
+          "nzxt-player-three",
+          "hp-omen-35l",
+          "legion-tower-5"
+        ]
+      }
+    },
+    {
+      "input": {
+        "budget": 1500,
+        "preferLaptop": true
+      },
+      "output": {
+        "ids": [
+          "acer-nitro-v-15"
+        ],
+        "totalPrice": 899,
+        "summary": "Acer Nitro V 15 (RTX 4050) as the core system for modern competitive and AAA games, around 1 500 €.",
+        "tradeoffs": [
+          "A laptop is portable and complete out of the box, but less upgradeable than a tower.",
+          "The full setup lands at 899 €, within budget."
+        ],
+        "warnings": [],
+        "alternatives": [
+          "legion-pro-5-16",
+          "rog-strix-g16"
+        ]
+      }
+    },
+    {
+      "input": {
+        "budget": 2500,
+        "includeMonitor": true,
+        "includePeripherals": true
+      },
+      "output": {
+        "ids": [
+          "hp-omen-35l",
+          "lg-ultragear-27gs75q",
+          "hyperx-cloud-iii",
+          "logitech-g-pro-x-superlight-2"
+        ],
+        "totalPrice": 2406,
+        "summary": "HP Omen 35L (RTX 5070) as the core system for modern competitive and AAA games, around 2 500 €.",
+        "tradeoffs": [
+          "A tower gives the best upgrade path; remember peripherals if you don't own any.",
+          "The full setup lands at 2 406 €, within budget.",
+          "HP Omen 35L (RTX 5070) is currently 14% off."
+        ],
+        "warnings": [],
+        "alternatives": [
+          "nzxt-player-three",
+          "legion-tower-5",
+          "msi-codex-r2"
+        ]
+      }
+    },
+    {
+      "input": {
+        "budget": 2000,
+        "preferLaptop": true,
+        "includePeripherals": true,
+        "games": [
+          "Cyberpunk 2077"
+        ]
+      },
+      "output": {
+        "ids": [
+          "legion-pro-5-16",
+          "hyperx-cloud-iii",
+          "logitech-g-pro-x-superlight-2"
+        ],
+        "totalPrice": 1857,
+        "summary": "Lenovo Legion Pro 5 16 (RTX 4070) as the core system for Cyberpunk 2077, around 2 000 €.",
+        "tradeoffs": [
+          "A laptop is portable and complete out of the box, but less upgradeable than a tower.",
+          "The full setup lands at 1 857 €, within budget.",
+          "Lenovo Legion Pro 5 16 (RTX 4070) is currently 16% off."
+        ],
+        "warnings": [],
+        "alternatives": [
+          "rog-strix-g16",
+          "acer-nitro-v-15"
+        ]
+      }
+    },
+    {
+      "input": {
+        "budget": 900,
+        "includeMonitor": true
+      },
+      "output": {
+        "ids": [
+          "msi-codex-r2",
+          "aoc-24g4x"
+        ],
+        "totalPrice": 1138,
+        "summary": "MSI Codex R2 (RTX 4060) as the core system for modern competitive and AAA games, around 900 €.",
+        "tradeoffs": [
+          "A tower gives the best upgrade path; remember peripherals if you don't own any.",
+          "The setup is 238 € over budget — drop an accessory or step the system down."
+        ],
+        "warnings": [
+          "Total 1 138 € exceeds the 900 € budget."
+        ],
+        "alternatives": [
+          "nzxt-player-three",
+          "hp-omen-35l",
+          "legion-tower-5"
+        ]
+      }
+    },
+    {
+      "input": {
+        "budget": 4000,
+        "brandPreference": [
+          "asus"
+        ],
+        "includeMonitor": true
+      },
+      "output": {
+        "ids": [],
+        "totalPrice": 0,
+        "summary": "No gaming systems matched.",
+        "tradeoffs": [],
+        "warnings": [
+          "No in-stock gaming systems found for these preferences."
+        ],
+        "alternatives": []
+      }
+    }
+  ]
+}

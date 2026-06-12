@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@ag-ui/client": "latest",
     "@copilotkit/react-core": "latest",
     "@copilotkit/runtime": "latest",
     "lucide-react": "latest",
