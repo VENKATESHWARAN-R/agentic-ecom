@@ -38,7 +38,6 @@ export type OrderDetail = {
 export type PersonaSummary = {
   id: Exclude<PersonaId, "guest">;
   name: string;
-  email: string;
   personaLabel: string;
   ordersTotal: number;
 };
@@ -100,15 +99,13 @@ export async function fetchOrderDetail(personaId: PersonaId, orderNumber: string
   return response.json();
 }
 
-export async function placeOrderApi(
-  personaId: PersonaId,
-  lines: CartLine[],
-  details: CheckoutDetails,
-): Promise<Order> {
+export async function placeOrderApi(lines: CartLine[], details: CheckoutDetails): Promise<Order> {
+  // Identity comes from the BFF session server-side; the body carries no userId,
+  // so the browser cannot place an order as someone else (P4).
   const response = await fetch(`${BFF}/orders`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ userId: personaId, lines, details }),
+    body: JSON.stringify({ lines, details }),
   });
   if (!response.ok) throw new Error(`Order placement failed: ${response.status}`);
   return response.json();

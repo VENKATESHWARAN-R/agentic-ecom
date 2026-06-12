@@ -189,7 +189,8 @@ export function ShopProvider({ children }: { children: React.ReactNode }) {
     async (details: CheckoutDetails) => {
       if (!cart.length) return null;
       try {
-        const order = await placeOrderApi(personaId, cart, details);
+        // Identity is the BFF session's; placeOrderApi sends no userId (P4).
+        const order = await placeOrderApi(cart, details);
         setLastOrder(order);
         setCart([]);
         return order;
@@ -197,7 +198,7 @@ export function ShopProvider({ children }: { children: React.ReactNode }) {
         return null;
       }
     },
-    [cart, personaId],
+    [cart],
   );
 
   const value = useMemo<ShopContextValue>(

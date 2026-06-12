@@ -34,6 +34,18 @@ router = APIRouter(prefix="/api")
 RETURN_POLICY = "30-day free returns from the delivery date; item unopened or unused. Drop off at any Posti point (demo)."
 
 
+def owner_or_403(user_id: str, identity: str | None = Depends(optional_identity)) -> str:
+    """Authorize a user-scoped resource: the BFF-asserted identity must own it.
+    Guests (no identity) → 401; someone else's data → 403. Identity comes from the
+    signed assertion, never the path — the path id names the requested resource,
+    it is not proof of identity (P2/P4)."""
+    if identity is None:
+        raise HTTPException(status_code=401, detail="Authentication required.")
+    if identity != user_id:
+        raise HTTPException(status_code=403, detail="You can only access your own data.")
+    return identity
+
+
 @router.get("/health")
 def health() -> dict[str, str]:
     return {"status": "ok"}
@@ -110,11 +122,12 @@ def list_users() -> list[dict[str, Any]]:
     with Session(engine) as session:
         users = get_users(session)
         orders = get_all_orders(session)
+    # No email/PII here — this is the demo login surface (pick a persona), not a
+    # public user directory (P6). Order counts are demo flavor, not sensitive.
     return [
         {
             "id": user_id,
             "name": profile["name"],
-            "email": profile["email"],
             "personaLabel": profile["personaLabel"],
             "ordersTotal": len(orders_for_user(user_id, orders)),
         }
@@ -123,7 +136,7 @@ def list_users() -> list[dict[str, Any]]:
 
 
 @router.get("/users/{user_id}/agent-profile")
-def agent_profile(user_id: str) -> dict[str, Any]:
+def agent_profile(user_id: str, _identity: str = Depends(owner_or_403)) -> dict[str, Any]:
     """Derived, bounded facts for the agent's context: ≤6 owned-hardware entries
     (enriched with the compat facts the agent needs) + the order count. Raw
     order history stays behind the paginated endpoints."""
@@ -156,7 +169,7 @@ def agent_profile(user_id: str) -> dict[str, Any]:
 
 
 @router.get("/users/{user_id}/orders")
-def user_orders(user_id: str) -> list[dict[str, Any]]:
+def user_orders(user_id: str, _identity: str = Depends(owner_or_403)) -> list[dict[str, Any]]:
     """Full order list with line details + return eligibility (account page)."""
     with Session(engine) as session:
         orders = get_all_orders(session)
@@ -169,7 +182,9 @@ def user_orders(user_id: str) -> list[dict[str, Any]]:
 
 
 @router.get("/users/{user_id}/orders/summaries")
-def user_order_summaries(user_id: str, limit: int = 5, offset: int = 0) -> dict[str, Any]:
+def user_order_summaries(
+    user_id: str, limit: int = 5, offset: int = 0, _identity: str = Depends(owner_or_403)
+) -> dict[str, Any]:
     """Paginated compact summaries (default 5, max 20 per call) — the getMyOrders tool."""
     with Session(engine) as session:
         orders = get_all_orders(session)
@@ -178,7 +193,9 @@ def user_order_summaries(user_id: str, limit: int = 5, offset: int = 0) -> dict[
 
 
 @router.get("/users/{user_id}/orders/{order_number}")
-def user_order_detail(user_id: str, order_number: str) -> dict[str, Any]:
+def user_order_detail(
+    user_id: str, order_number: str, _identity: str = Depends(owner_or_403)
+) -> dict[str, Any]:
     with Session(engine) as session:
         orders = get_all_orders(session)
     detail = get_order_detail(user_id, order_number, orders)
@@ -196,15 +213,17 @@ class OrderLineIn(BaseModel):
 
 
 class PlaceOrderRequest(BaseModel):
-    userId: str
     lines: list[OrderLineIn]
     details: dict[str, Any]
 
 
 @router.post("/orders", status_code=201)
-def place_order(request: PlaceOrderRequest) -> dict[str, Any]:
+def place_order(request: PlaceOrderRequest, identity: str | None = Depends(optional_identity)) -> dict[str, Any]:
     if not request.lines:
         raise HTTPException(status_code=400, detail="Cart is empty.")
+    # Identity is the session's, never the request body — a client cannot place an
+    # order as someone else (P4). Guests place orders attributed to "guest".
+    user_id = identity or "guest"
     lines = [line.model_dump() for line in request.lines]
     from ..domain.format import iso_from_ms
     import time
@@ -212,7 +231,7 @@ def place_order(request: PlaceOrderRequest) -> dict[str, Any]:
     now_ms = int(time.time() * 1000)
     row = OrderRow(
         number=new_order_number(now_ms),
-        user_id=request.userId,
+        user_id=user_id,
         lines=lines,
         total=cart_total(lines),
         details=request.details,
