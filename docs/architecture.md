@@ -1,71 +1,60 @@
 # Architecture
 
-SignalCart is a single Next.js App Router application with a local domain service layer and a CopilotKit runtime endpoint. The UI and the agent both use the same catalog logic so product facts, compatibility checks, and recommendation behavior do not drift.
+Voltti is a single Next.js App Router application. A deterministic, in-memory domain layer (`src/lib/`) owns all product facts and commerce logic; two access paths sit on top of it — the storefront UI and the CopilotKit agent. Neither path may fork business logic.
 
 ```mermaid
 flowchart LR
-    Shopper["Shopper"] --> UI["Next.js React Storefront"]
-    Shopper --> Chat["CopilotKit Sidebar"]
-    Chat --> Runtime["/api/copilotkit Runtime"]
-    Runtime --> Agent["BuiltInAgent"]
-    Agent --> Tools["Server Tools"]
-    Tools --> Services["Catalog Services"]
-    UI --> Services
-    Services --> Catalog["Mock Catalog Data"]
-    Agent --> FrontendTools["Frontend Tools"]
+    Shopper --> UI["Storefront pages (src/app)"]
+    Shopper --> Chat["CopilotSidebar"]
+    Chat --> Runtime["/api/copilotkit · BuiltInAgent"]
+    Runtime --> ServerTools["Server tools"]
+    Chat --> FrontendTools["Frontend tools + HITL"]
     FrontendTools --> UI
-    BrowserAgent["Browser Agent"] --> WebMCP["Feature-detected WebMCP Tools"]
+    ServerTools --> Services["src/lib/services.ts"]
+    UI --> Services
+    Services --> Catalog["src/lib/catalog.ts (~59 products)"]
+    BrowserAgent["Browser agent"] -. optional .-> WebMCP["navigator.modelContext tools"]
     WebMCP --> UI
 ```
 
-## Main Modules
+## Domain Layer
 
-- `src/app/page.tsx`: Renders the main commerce experience.
-- `src/app/providers.tsx`: Wraps the app with `CopilotKitProvider`.
-- `src/app/api/copilotkit/route.ts`: Creates the CopilotKit runtime and BuiltInAgent.
-- `src/components/commerce-experience.tsx`: Contains the storefront, frontend tools, agent context, HITL cart approval, and WebMCP registration.
-- `src/lib/catalog.ts`: Curated mock inventory.
-- `src/lib/services.ts`: Search, alternatives, gaming setup recommendation, cart total, and compatibility checks.
-- `src/lib/types.ts`: Shared domain types.
+- `src/lib/types.ts` — `Product`, `Compat` (socket, memory type, watts, GPU length, case clearance), `CartLine`, `SearchFilters`, `CheckoutDetails`, `Order`.
+- `src/lib/catalog.ts` — the product array plus `featuredIds` and `categoryMeta`. No I/O.
+- `src/lib/services.ts` — pure functions: `searchProducts`, `getAlternatives`, `checkCompatibility`, `recommendPcBuild` (budget-allocating part picker), `recommendGamingSetup` (prebuilt advisor), cart math, and `productSummary` (compact shape that keeps agent payloads small).
 
-## Data Flow
+Everything is deterministic and runs identically on the server (route handler, prerendered pages) and in the browser (client components, frontend tools).
 
-The UI reads catalog data through service functions such as `searchProducts`, `recommendGamingSetup`, and `checkCompatibility`.
+## Access Path 1: Storefront UI
 
-The CopilotKit BuiltInAgent gets server-side tools in `route.ts`. These tools call the same service functions as the UI. The agent can also call frontend tools registered in `commerce-experience.tsx` to navigate pages, apply filters, highlight products, open comparisons, and draft carts.
+Routes in `src/app/`: `/` (hero, category tiles, top deals, featured), `/c/[slug]` for 8 categories, `/deals`, `/search`, `/product/[id]`, `/cart`, `/checkout`. Category and product pages are statically generated from the catalog.
 
-The app shares current state with the agent using `useAgentContext`. This includes the current page, filters, visible products, cart, selected comparison products, and compatibility warnings.
+Listings are rendered by `CatalogBrowser` (`src/components/catalog-browser.tsx`). **The URL query string is the source of truth for filter state** — `q`, `max`, `brands`, `deals`, `stock`, `sort`. Sidebar clicks write params with `router.replace`; the agent's `browseCatalog` tool writes the same params with `router.push`. Both produce identical, shareable listing state.
 
-## Runtime Shape
+## Access Path 2: The Agent
 
-The runtime endpoint is `/api/copilotkit`. It uses `CopilotRuntime` and `BuiltInAgent` from CopilotKit v2.
+- `src/app/api/copilotkit/route.ts` — `CopilotRuntime` + `BuiltInAgent` (model from `COPILOTKIT_MODEL`) with six server tools that wrap `services.ts`.
+- `src/components/copilot/shopping-assistant.tsx` — the client half: `CopilotSidebar`, `useAgentContext` (shares current path, cart, comparison ids, checkout-form completeness), frontend tools that steer the UI, human-in-the-loop approval cards, and `useRenderTool` renderers that turn server tool results into product cards in chat.
+- `src/app/providers.tsx` — wraps the app in `CopilotKitProvider` and `ShopProvider`.
 
-The model is selected through:
-
-```bash
-COPILOTKIT_MODEL=openai/gpt-4o-mini
-```
-
-The provider key must match the provider prefix in the model string:
-
-- `openai/...` uses `OPENAI_API_KEY`
-- `anthropic/...` uses `ANTHROPIC_API_KEY`
-- `google/...` uses `GOOGLE_API_KEY`
+See [agent-contract.md](agent-contract.md) for the full tool surface and rules.
 
 ## State Model
 
-The main shopping state tracks:
+Client state lives in `ShopProvider` (`src/lib/shop-context.tsx`), accessed via `useShop()`:
 
-- Current storefront page
-- Filters and budget
-- Shortlist
-- Comparison candidates
-- Recommendation summary and tradeoffs
-- Cart draft
-- Pending approval
+- **Cart** — persisted to localStorage under `voltti.cart.v1`; hydration is guarded by a `hydrated` flag to avoid SSR mismatches.
+- **Compare selection** (max 4) and comparison-modal visibility.
+- **Highlighted product ids** — set by the agent to draw attention in listings.
+- **Checkout draft** — partial `CheckoutDetails`, edited by the form and by the agent's `prefillCheckout` tool.
+- **Last order** — set by `placeOrder`, which generates a fake order number and clears the cart.
 
-Mutable state lives in React. Durable commerce storage is intentionally deferred.
+Listing filter state deliberately does *not* live here — it lives in the URL (above).
 
-## Deployment Model
+## WebMCP (Progressive Enhancement)
 
-The Docker setup builds the Next app and runs `next start` on port `3000`. Runtime secrets are passed as environment variables.
+`src/lib/webmcp.ts` registers `search_catalog`, `open_page`, and `add_to_cart` on `navigator.modelContext` when a browser supports it. Everything is feature-detected and try/catch-wrapped; in normal browsers it is a no-op.
+
+## Deployment
+
+The Dockerfile builds the Next app and runs `next start` on port 3000; `docker-compose.yml` passes the model and provider keys as environment variables.

@@ -1,119 +1,66 @@
 # Agent Contract
 
-This document defines how the CopilotKit agent is expected to behave in the SignalCart POC.
+How the Voltti shopping assistant is expected to behave, and the tool surface that enforces it.
 
 ## Core Principle
 
-The agent orchestrates shopping. The domain services own product facts and deterministic decisions.
-
-The agent should not invent products, prices, stock, compatibility, or checkout status. It should use tools and app context before making claims.
+The LLM orchestrates and explains; the domain services own the facts. Every product claim — existence, price, stock, specs, compatibility — must come from a tool result, never from model knowledge.
 
 ## Server Tools
 
-Defined in `src/app/api/copilotkit/route.ts`.
+Defined in `src/app/api/copilotkit/route.ts`, executed in the runtime. All are deterministic wrappers over `src/lib/services.ts` and return compact `productSummary` shapes.
 
-### `searchCatalog`
-
-Searches the local catalog. Use before recommending products.
-
-Inputs:
-
-- `query`
-- `category`
-- `maxPrice`
-- `dealOnly`
-- `inStockOnly`
-
-### `getProductAlternatives`
-
-Finds in-stock alternatives for an unavailable or unsuitable product.
-
-Input:
-
-- `productId`
-
-### `checkCompatibility`
-
-Checks selected PC components for compatibility warnings.
-
-Input:
-
-- `productIds`
-
-### `recommendGamingSetup`
-
-Returns a structured gaming setup recommendation from inventory.
-
-Inputs:
-
-- `budget`
-- `games`
-- `brandPreference`
-- `includeMonitor`
-- `preferLaptop`
+| Tool | Purpose |
+|---|---|
+| `searchCatalog` | Search by query/category/maxPrice/brands/dealsOnly/inStockOnly. Category `gaming` matches gaming-tagged products across categories. Must be called before discussing specific products. |
+| `getProductDetails` | Full details for one product id: description, specs, highlights, compat metadata. |
+| `getProductAlternatives` | In-stock alternatives for an out-of-stock, over-budget, or unsuitable product. |
+| `checkCompatibility` | PC-part check: CPU socket vs motherboard, memory generation, GPU length vs case clearance, PSU headroom, stock. |
+| `recommendPcBuild` | Custom part-picker: allocates a budget across CPU/board/RAM/GPU/storage/PSU/case, keeps the platform consistent, runs the compatibility check on the result. |
+| `recommendGamingSetup` | Prebuilt advisor: desktop or gaming laptop within budget, optional monitor and peripherals, plus alternatives. |
 
 ## Frontend Tools
 
-Defined in `src/components/commerce-experience.tsx`.
+Defined in `src/components/copilot/shopping-assistant.tsx`, executed in the browser via the Next router and `useShop()`. They steer what the user sees but never mutate the cart.
 
-### `navigateToPage`
+| Tool | Purpose |
+|---|---|
+| `browseCatalog` | Open a listing with filters applied (writes the `q`/`max`/`brands`/`deals`/`stock`/`sort` URL params). |
+| `showProduct` | Open a product detail page. |
+| `goToPage` | Navigate to home, deals, cart, or checkout. |
+| `highlightProducts` | Visually highlight products in the current listing. |
+| `openComparison` | Open the comparison modal for 2–4 products; returns the compatibility result. |
+| `prefillCheckout` | Fill the checkout form with details the user gave in chat, then open checkout. Never invents details. |
 
-Moves the UI to a top-level page.
+## Human-in-the-Loop
 
-### `applyProductFilters`
+`useHumanInTheLoop` tools are the **only** chat paths that mutate the cart or place an order, and both render an approval card that requires a button click:
 
-Applies search/category/budget/deal filters in the UI.
+- `proposeCartUpdate` — proposes items with a reason and total; the user clicks "Add to cart" or declines. The handler reports which items were added and which were unavailable.
+- `confirmOrder` — shows the cart, total, delivery summary, and a "Place order" button. If delivery details are incomplete it routes the user to the checkout form instead. The agent may only claim an order was placed when the tool returned `placed: true`.
 
-### `highlightProducts`
-
-Highlights products in the catalog grid.
-
-### `openComparison`
-
-Sets comparison candidates and returns compatibility results.
-
-### `draftCart`
-
-Prepares a cart draft and marks it as pending approval. It does not add items directly.
-
-### `confirmCartDraft`
-
-Human-in-the-loop tool that asks the user to approve adding items.
+Never add a tool that silently adds to cart, fills payment data, or completes checkout.
 
 ## Safety Rules
 
-- Do not say an order is complete.
-- Do not silently finalize checkout.
-- Do not add a cart draft without explicit user approval.
-- Do not claim a component build is compatible until `checkCompatibility` has been called.
-- If a product is unavailable, suggest in-stock alternatives.
-- If the user asks for an unsupported product, explain that it is outside current inventory and offer closest matches.
+- No silent checkout: orders go through `confirmOrder`, cart changes through `proposeCartUpdate`.
+- No invented catalog facts: search/details tools first, always.
+- Compatibility claims require `checkCompatibility` — including before presenting parts as a working build. Warn clearly on mismatches (e.g. Intel CPU on an AM5 board) and suggest a compatible replacement.
+- Out-of-stock or over-budget requests route through `getProductAlternatives`; say plainly that the item is unavailable.
+- `prefillCheckout` uses only details the user explicitly provided.
 
-## Good Agent Behavior
+## Generative UI Conventions
 
-For "I want a gaming PC around €1500 for Valorant and AAA games":
+`useRenderTool` renderers in `shopping-assistant.tsx` turn server tool results into cards in chat: search result lists, alternatives, compatibility verdicts (check/warning icon plus warning list), PC builds, and gaming setups — each as compact product rows with prices and a total. Notes:
 
-1. Ask clarifying questions only if needed.
-2. Call `recommendGamingSetup`.
-3. Highlight recommended products.
-4. Explain tradeoffs and total price.
-5. Offer to draft the cart.
-6. Ask for confirmation before adding items.
+- `useRenderTool` receives `result` as a **string**; parse it defensively (`safeParse`).
+- Cards show product details, so chat text should stay short and not repeat spec lists.
+- New server tools whose results benefit from visual presentation should get a renderer.
 
-For "I picked an Intel CPU and AM5 motherboard":
+## Agent Context and Suggestions
 
-1. Call `checkCompatibility`.
-2. Name the incompatible socket mismatch.
-3. Suggest replacing either the CPU or the motherboard.
-
-For "Any discounted phones under €500?":
-
-1. Call `searchCatalog` with `category=phones`, `maxPrice=500`, and `dealOnly=true`.
-2. Apply UI filters.
-3. Highlight or summarize the best matching in-stock products.
+`useAgentContext` shares live storefront state: current path, cart lines with names and prices, cart total, comparison ids, checkout-form fields and completeness, and the last order number. The agent should consult this before, for example, calling `confirmOrder`. Static suggestions (`useConfigureSuggestions`) appear before the first message: build a gaming PC, phone deals, check my build, headphones advice.
 
 ## WebMCP Contract
 
-WebMCP registration is a progressive enhancement. Tools must remain single-purpose and should call the same local services or UI handlers as the CopilotKit path.
-
-Do not expose a browser tool that completes checkout.
+`src/lib/webmcp.ts` exposes `search_catalog`, `open_page`, and `add_to_cart` to browser agents via `navigator.modelContext`, calling the same services and `useShop` handlers as the CopilotKit path. It must remain feature-detected and a no-op when unsupported, and must never expose a tool that completes checkout.

@@ -11,9 +11,7 @@
   },
   "dependencies": {
     "@copilotkit/react-core": "latest",
-    "@copilotkit/react-ui": "latest",
     "@copilotkit/runtime": "latest",
-    "hono": "latest",
     "lucide-react": "latest",
     "next": "latest",
     "react": "latest",

@@ -1,15 +1,20 @@
-# SignalCart Developer Docs
+# Voltti Developer Docs
 
-This folder contains the working developer documentation for the SignalCart agentic ecommerce POC. The docs are written for future contributors and agents that need to understand how the app is shaped before changing behavior.
+Working documentation for the Voltti agentic e-commerce POC, written for contributors and agents who need to understand the app before changing it. `AGENTS.md` at the repo root is the authoritative short summary; these docs add depth.
 
 ## Reading Order
 
-1. [Architecture](architecture.md): System structure, data flow, and important modules.
-2. [Design](design.md): UX goals, layout rules, visual language, and interaction principles.
-3. [Features](features.md): Current product surface and expected user journeys.
-4. [Agent Contract](agent-contract.md): CopilotKit tools, state, safety rules, and WebMCP enhancement notes.
-5. [Runbook](runbook.md): Setup, env vars, model/provider selection, Docker, validation, and troubleshooting.
+1. [Architecture](architecture.md): domain layer, the two access paths (UI and agent), data flow, and state model.
+2. [Agent Contract](agent-contract.md): the tool surface, safety rules, and generative UI conventions.
+3. [Features](features.md): current feature set and the signature user journeys.
+4. [Design](design.md): visual language, layout zones, and interaction rules.
+5. [Runbook](runbook.md): setup, env vars, model selection, Docker, and validation.
 
 ## Project Boundaries
 
-SignalCart is intentionally a POC. It should stay focused on agentic discovery, product reasoning, compatibility checks, cart drafting, and human-approved checkout. Avoid adding real payments, real user accounts, live inventory integrations, or broad personalization until the agentic flows are validated.
+Voltti is intentionally a POC. It exists to demonstrate agentic discovery, grounded product reasoning, compatibility checking, and human-approved cart/checkout flows. Keep it that size:
+
+- No databases, real auth, real payments, or live inventory integrations.
+- The catalog stays an in-memory array; the domain layer stays deterministic and offline.
+- Cart persistence stays in localStorage; orders stay mock.
+- WebMCP stays a feature-detected enhancement — core shopping must never depend on it.
