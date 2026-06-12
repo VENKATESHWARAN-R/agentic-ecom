@@ -2,6 +2,8 @@
 
 Guidance for AI agents working in this repository.
 
+> **🔒 Read the principles first.** Before any change-related decision or code change, read **[docs/security-principles.md](docs/security-principles.md)** and ensure your change complies. Cite the principle it upholds — or the explicit trade-off it makes. The binding principles **P1–P7** are non-negotiable (determinism boundary, the LLM authorizes nothing, structural guardrails, server-resolved identity, least-privilege tiered tools, data minimization, observability & limits); **P8–P9** are aspirational. New tools must declare a risk tier.
+
 ## What this project is
 
 A proof-of-concept electronics storefront ("Voltti", EUR pricing) where users shop two ways:
@@ -11,7 +13,7 @@ A proof-of-concept electronics storefront ("Voltti", EUR pricing) where users sh
 
 The system is split into two services: the **Next.js storefront** (repo root) and the **agent backend** (`backend/`, uv-managed Python) hosting the Pydantic AI shopping agent (over the AG-UI protocol), the deterministic domain logic, a REST API, and SQLite. The catalog/persona seed data is shared via `data/*.json`; orders live only in the backend DB.
 
-Keep it POC-sized and simple. No auth, real payments, or external commerce APIs. The only database is the backend's SQLite, seeded on startup.
+**Demo surface, production-grade depth.** The UI, the 61-product catalog, and the personas are deliberately fake — but the **architecture, security design, and agentic orchestration are real, production-grade work, and the actual point of this project**: a reference-quality, secure agentic implementation on generative UI. So there is no real payment rail, identity provider, or external commerce API, and the only database is the backend's SQLite (seeded on startup) — yet identity, authorization, the tool gateway, limits, and observability are built to a real production shape with mock credentials. The depth lives in the design, not the surface. See [docs/security-principles.md](docs/security-principles.md).
 
 ## Stack
 

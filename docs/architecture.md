@@ -1,5 +1,7 @@
 # Architecture
 
+> **Current state.** This documents Voltti as built today. The ratified security/architecture **target** — BFF session, tool gateway, edge, output validation — is in [target-architecture.md](target-architecture.md) and is not yet implemented.
+
 Voltti is two services. The **storefront** is a Next.js App Router application; the **agent backend** is a uv-managed Python service (FastAPI) hosting the shopping agent (Pydantic AI, speaking AG-UI), the deterministic domain logic, a REST API, and a SQLite database. The agentic system — prompt, tools, model — lives entirely in the backend and can be changed and deployed without touching the storefront.
 
 ```mermaid
