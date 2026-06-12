@@ -19,11 +19,15 @@ from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, Field
 from pydantic_ai import Agent, RunContext
+from sqlmodel import Session
 
 from ..config import AGENT_MODEL
+from ..db import engine, get_all_orders
 from ..domain.builds import recommend_gaming_setup, recommend_pc_build
 from ..domain.catalog import get_alternatives, get_product, product_summary, search_products
 from ..domain.compat import check_compatibility
+from ..domain.orders import get_order_detail, get_orders_for
+from . import policy
 
 SYSTEM_PROMPT = (Path(__file__).parent / "prompt.md").read_text()
 
@@ -34,9 +38,11 @@ Category = Literal[
 
 @dataclass
 class AgentDeps:
-    """Per-request dependencies: the AG-UI context items from the frontend."""
+    """Per-request dependencies: the AG-UI context items from the frontend, plus
+    the session identity resolved from the BFF assertion (never model-supplied)."""
 
     context: list[dict[str, Any]] = field(default_factory=list)
+    identity: str | None = None
 
 
 class OwnedRef(BaseModel):
@@ -170,4 +176,66 @@ def recommendGamingSetup(
         **result,
         "products": [product_summary(p) for p in result["products"]],
         "alternatives": [product_summary(p) for p in result["alternatives"]],
+    }
+
+
+# Mirror of api.routes.RETURN_POLICY (demo copy — kept here so the order/return
+# tools don't import the API layer).
+RETURN_POLICY = "30-day free returns from the delivery date; item unopened or unused. Drop off at any Posti point (demo)."
+
+
+# ---------------------------------------------------------------- identity-scoped tools
+# Run in the backend (unlike the catalog tools, these touch user data). Identity
+# comes from the session via deps — there is NO userId parameter for the model to
+# supply, hallucinate, or be talked into changing (P4). Each call passes the tool
+# gateway (P2/P5) and is scoped to the authenticated owner.
+
+
+@agent.tool
+def getMyOrders(
+    ctx: RunContext[AgentDeps],
+    limit: Annotated[int, Field(ge=1, le=20, description="How many orders to return (default 5, max 20).")] = 5,
+    offset: Annotated[int, Field(ge=0, description="Skip this many of the newest orders, for pagination.")] = 0,
+) -> dict[str, Any]:
+    """List the signed-in customer's recent orders as compact summaries. Paginated — default 5, max 20 per call; use `total`/`offset` to page only if the user asks. The customer is whoever is signed in; you cannot pass a user id."""
+    identity = policy.authorize("getMyOrders", ctx.deps.identity)
+    if identity is None:
+        return {"signedIn": False}
+    with Session(engine) as session:
+        orders = get_all_orders(session)
+    page = get_orders_for(identity, orders, limit=limit, offset=offset)
+    return {
+        "signedIn": True,
+        "total": page["total"],
+        "offset": max(0, offset),
+        "returned": len(page["orders"]),
+        "orders": page["orders"],
+    }
+
+
+@agent.tool
+def getReturnInfo(
+    ctx: RunContext[AgentDeps],
+    orderNumber: Annotated[str, Field(description="Order number, e.g. VLT-1002.")],
+) -> dict[str, Any]:
+    """Return status and the exact return-by date for one of the signed-in customer's orders. Quote the deadline verbatim — never compute dates yourself. Scoped to the signed-in customer; you cannot pass a user id."""
+    identity = policy.authorize("getReturnInfo", ctx.deps.identity)
+    if identity is None:
+        return {"signedIn": False}
+    with Session(engine) as session:
+        orders = get_all_orders(session)
+    detail = get_order_detail(identity, orderNumber, orders)
+    if not detail:
+        return {"signedIn": True, "found": False, "orderNumber": orderNumber}
+    return {
+        "signedIn": True,
+        "found": True,
+        "policy": RETURN_POLICY,
+        "order": {
+            "number": detail["number"],
+            "status": detail["status"],
+            "deliveredAt": detail.get("deliveredAt"),
+            "returnEligibility": detail["returnEligibility"],
+            "items": [line["name"] for line in detail["lines"]],
+        },
     }

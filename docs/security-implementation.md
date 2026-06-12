@@ -98,14 +98,34 @@ sequenceDiagram
     N-->>B: 403
 ```
 
-### What's enforced vs. pending
-- ✅ **Done (2a):** REST ownership (401/403), session-attributed orders, de-PII'd user list — covered by tests asserting the 401/403/404/200 cases.
-- ⏳ **Pending (2b):** the **agent-side tool gateway** — route the identity assertion to the Pydantic AI agent, classify each tool by risk tier, and move the identity-scoped tools (`getMyOrders`, `getReturnInfo`) from the browser into authorized backend tools so the model orchestrates them but never supplies a `userId`.
+### The agent tool gateway (2b — done)
+The same principle now covers the **AI agent**, not just REST. The identity assertion rides along to the agent, and the agent's data tools are authorized server-side.
+
+- **Identity reaches the agent.** The CopilotKit route ([route.ts](../src/app/api/copilotkit/route.ts)) mints the assertion from the session and attaches it; the backend `/agui` endpoint verifies it into `AgentDeps.identity` ([main.py](../backend/src/voltti_backend/main.py)).
+- **`getMyOrders` / `getReturnInfo` moved into the backend agent** ([agent.py](../backend/src/voltti_backend/agent/agent.py)). They read `deps.identity` — there is **no `userId` parameter** for the model to supply, hallucinate, or be argued into. The generative-UI cards still render client-side.
+- **Every user-data tool call passes the gateway** ([policy.py](../backend/src/voltti_backend/agent/policy.py)): each tool has a risk tier (read-only vs user-data); user-data tools are scoped to the authenticated identity and audited. This is the seam where rate limits and abuse scoring attach later.
+
+```mermaid
+sequenceDiagram
+    participant B as Browser chat (aino)
+    participant N as Next /api/copilotkit (BFF)
+    participant P as Backend agent (Pydantic AI)
+    B->>N: "what have I ordered?"
+    N->>P: AG-UI run · Bearer <aino assertion>
+    P->>P: verify assertion → deps.identity = aino
+    P->>P: model calls getMyOrders → gateway authorizes (tier=user-data, identity=aino)
+    P-->>N: aino's orders (scoped; the model passed no userId)
+    N-->>B: renders the orders card
+```
+
+### What's enforced
+- ✅ REST ownership: no session → **401**, another user's data → **403**, your own → **200**; orders attributed to the session; user list carries no email — all covered by tests.
+- ✅ Agent tools: identity-scoped data tools run as the signed-in user; the model cannot pass a `userId`; each call is tier-classified and audited.
 
 ### See it working
-Logged in as `aino`, from the storefront console:
+REST (storefront console, logged in as `aino`):
 ```js
 (await fetch('/api/bff/users/aino/orders')).status   // → 200  (your data)
 (await fetch('/api/bff/users/sami/orders')).status   // → 403  (someone else's)
-(await (await fetch('/api/bff/users')).json()).some(u => 'email' in u)  // → false
 ```
+Agent: ask the assistant *"what have I ordered recently?"* as Aino → it calls the backend `getMyOrders`, scoped to her session, and renders her orders. As a guest, the same question yields a "sign in to see orders" card — the model never sees another user's data.

@@ -19,12 +19,7 @@ import {
   getProduct,
   getProducts,
 } from "@/lib/services";
-import {
-  fetchAgentProfile,
-  fetchOrderDetail,
-  fetchOrderSummaries,
-  type AgentProfile,
-} from "@/lib/api";
+import { fetchAgentProfile, type AgentProfile } from "@/lib/api";
 import { useShop } from "@/lib/shop-context";
 import type { CheckoutDetails, OrderStatus, Product, ReturnEligibility } from "@/lib/types";
 import { ProductVisual } from "@/components/product-visual";
@@ -384,53 +379,28 @@ export function ShoppingAssistant() {
     [personaId],
   );
 
-  // ---------- Identity-scoped order/return tools (frontend; read the active persona) ----------
+  // ---------- Identity-scoped order/return tools ----------
+  // These now run as BACKEND agent tools, scoped to the session identity — the
+  // model can't pass a userId (see docs/security-implementation.md). The model
+  // calls them by name; their results render here as cards (generative UI stays
+  // client-side).
 
-  useFrontendTool(
+  useRenderTool(
     {
       name: "getMyOrders",
-      description:
-        "List the signed-in customer's recent orders as compact summaries. Results are PAGINATED — default 5, max 20 per call; never request more than you need. Use the returned `total` and `offset` to fetch older orders only if the user asks.",
-      parameters: z.object({
-        limit: z.number().min(1).max(20).optional().describe("How many orders to return (default 5)."),
-        offset: z.number().min(0).optional().describe("Skip this many of the newest orders, for pagination."),
-      }),
-      handler: async ({ limit, offset }) => {
-        if (personaId === "guest") return { signedIn: false };
-        const page = await fetchOrderSummaries(personaId, { limit: limit ?? 5, offset: offset ?? 0 });
-        return { signedIn: true, total: page.total, offset: page.offset, returned: page.returned, orders: page.orders };
-      },
+      parameters: z.object({ limit: z.number().optional(), offset: z.number().optional() }),
       render: ({ status, result }) => <OrdersCard status={status} result={result} />,
     },
-    [personaId],
+    [],
   );
 
-  useFrontendTool(
+  useRenderTool(
     {
       name: "getReturnInfo",
-      description:
-        "Get the return status and exact return-by date for one of the signed-in customer's orders. Quote the deadline the tool returns verbatim — never compute dates yourself.",
-      parameters: z.object({ orderNumber: z.string().describe("Order number, e.g. VLT-1002.") }),
-      handler: async ({ orderNumber }) => {
-        if (personaId === "guest") return { signedIn: false };
-        const detail = await fetchOrderDetail(personaId, orderNumber);
-        if (!detail) return { signedIn: true, found: false, orderNumber };
-        return {
-          signedIn: true,
-          found: true,
-          policy: detail.policy,
-          order: {
-            number: detail.number,
-            status: detail.status,
-            deliveredAt: detail.deliveredAt,
-            returnEligibility: detail.returnEligibility,
-            items: detail.lines.map((line) => line.name),
-          },
-        };
-      },
+      parameters: z.object({ orderNumber: z.string().optional() }),
       render: ({ status, result }) => <ReturnInfoCard status={status} result={result} />,
     },
-    [personaId],
+    [],
   );
 
   // ---------- Human-in-the-loop approvals ----------
