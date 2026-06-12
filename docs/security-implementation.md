@@ -65,3 +65,47 @@ await (await fetch('/api/bff/me')).json()
 // → { identity: "aino", signedIn: true }   ← backend identified you from the assertion alone
 ```
 Verified on build: cross-language assertion round-trip (Node `jose` → Python `PyJWT`), `/api/me` returns 401 for a forged token, and the browser network log shows **only** same-origin `/api/bff/*` calls — never the backend on `:8000`.
+
+---
+
+## Slice 2 · Authorization & the tool gateway (P2/P5)
+
+### The problem it solves
+Slice 1 made the server *know* who you are; it did not yet stop you from *asking for someone else's data*. The REST routes still keyed off the persona in the URL path (`/api/users/sami/orders`), so a logged-in user could edit the path and read another account — an IDOR. Authorization must be decided server-side against your verified identity, never the path (**P2**, **P4**).
+
+### What exists now (REST ownership — done)
+Every identity-scoped route is guarded by an ownership check ([backend/.../api/routes.py](../backend/src/voltti_backend/api/routes.py) · `owner_or_403`):
+
+| Situation | Result |
+|---|---|
+| No session (guest) calls a user route | **401** — authentication required |
+| Aino's session requests **Sami's** data | **403** — you can only access your own data |
+| Aino's session requests **Aino's** data | **200** |
+
+Two more fixes landed with it:
+- **Orders are attributed to the session, not the request body.** `POST /api/orders` ignores any `userId` in the payload and uses the asserted identity — you cannot place an order as someone else. (Guests place orders attributed to `guest`.)
+- **The login surface stopped leaking PII.** `GET /api/users` no longer returns emails — only persona names, labels, and order counts (P6).
+
+```mermaid
+sequenceDiagram
+    participant B as Browser (logged in as aino)
+    participant N as Next BFF
+    participant P as Python backend
+    B->>N: GET /api/bff/users/sami/orders
+    N->>P: GET /api/users/sami/orders · Bearer <aino assertion>
+    P->>P: verify assertion → identity = aino; path asks for sami
+    P-->>N: 403 Forbidden (identity ≠ resource owner)
+    N-->>B: 403
+```
+
+### What's enforced vs. pending
+- ✅ **Done (2a):** REST ownership (401/403), session-attributed orders, de-PII'd user list — covered by tests asserting the 401/403/404/200 cases.
+- ⏳ **Pending (2b):** the **agent-side tool gateway** — route the identity assertion to the Pydantic AI agent, classify each tool by risk tier, and move the identity-scoped tools (`getMyOrders`, `getReturnInfo`) from the browser into authorized backend tools so the model orchestrates them but never supplies a `userId`.
+
+### See it working
+Logged in as `aino`, from the storefront console:
+```js
+(await fetch('/api/bff/users/aino/orders')).status   // → 200  (your data)
+(await fetch('/api/bff/users/sami/orders')).status   // → 403  (someone else's)
+(await (await fetch('/api/bff/users')).json()).some(u => 'email' in u)  // → false
+```
