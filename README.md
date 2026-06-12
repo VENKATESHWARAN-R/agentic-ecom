@@ -18,6 +18,8 @@ Both paths call the same deterministic domain services in `src/lib/services.ts`,
 
 ## Demo Script Ideas
 
+See **[DEMO.md](DEMO.md)** for the full walkthrough script (10 scenarios with exact prompts, what to watch for, and the seeded demo products). Highlights:
+
 - "Any discounted phones under €500?" — catalog search, deal filtering, UI steering to the listing.
 - "I picked an Intel Core Ultra CPU and an AM5 motherboard" — the compatibility check names the socket mismatch and suggests a fix.
 - "I want the RTX 5070" — it's out of stock; the agent says so and offers in-stock alternatives.

@@ -33,11 +33,12 @@ export default function HomePage() {
     <>
       <section className="hero">
         <div>
-          <h1>Tech that fits. Advice that checks out.</h1>
+          <h1>
+            Find the right tech — and know it <em>fits</em>.
+          </h1>
           <p>
-            Shop phones, gaming rigs, and PC parts the usual way — or open the assistant and just say
-            what you need. It searches the catalog, flags incompatible parts, and builds your cart with
-            your approval.
+            Browse like any store, or ask the assistant. It knows the whole catalog, checks that PC
+            parts actually work together, and never touches your cart without asking you first.
           </p>
           <div className="hero-chips">
             <Link href="/deals" className="hero-chip">

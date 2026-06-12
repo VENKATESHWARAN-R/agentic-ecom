@@ -6,10 +6,11 @@ Voltti should feel like a real Nordic electronics retailer, not a chatbot demo w
 
 All styling is plain CSS in `src/app/globals.css` (no Tailwind). Theme tokens are defined in `:root`:
 
-- **Base**: light gray page (`--bg`), white panels (`--surface`), dark ink text (`--ink`), muted secondary text (`--muted`), restrained borders (`--line`).
-- **Brand**: indigo-blue (`--brand`, `--brand-dark`, `--brand-soft`) for primary actions, links, and active states.
-- **Semantic accents**: `--deal` (red-orange) for discounts, `--ok` (green) for stock and compatibility success, `--warn` (amber) for compatibility and validation warnings. Each has a `-soft` background variant for notices.
-- **Shape**: 12px radius (`--radius`), two soft shadow levels (`--shadow`, `--shadow-lift`).
+- **Base**: warm paper page (`--bg`), white panels (`--surface`), dark ink text (`--ink`), muted secondary text (`--muted`), warm-gray borders (`--line`).
+- **Brand**: deep Nordic navy (`--brand`, `--brand-dark`, `--brand-soft`) for links, active states, and the hero; the header bar uses `--header`/`--header-ink` (near-navy with light text).
+- **CTA**: amber (`--cta`, `--cta-hover`) with dark text (`--cta-ink`) for primary buttons, the cart badge, and nav highlights — the classic Nordic-retail accent.
+- **Semantic accents**: `--deal` (red-orange) for discounts, `--ok` (green) for stock and compatibility success, `--warn` (amber-brown) for compatibility and validation warnings. Each has a `-soft` background variant for notices.
+- **Shape**: 10px radius (`--radius`), two soft shadow levels (`--shadow`, `--shadow-lift`). Flat color blocks, no gradients.
 
 Product imagery is generated SVG (`src/components/product-visual.tsx`) driven by each product's `visual` kind and `accent` color — no image assets in the POC.
 
