@@ -11,6 +11,8 @@ services:
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       GOOGLE_API_KEY: ${GOOGLE_API_KEY:-}
       FRONTEND_ORIGIN: ${FRONTEND_ORIGIN:-http://localhost:3000}
+      # Shared secret for the BFF→backend identity assertion (must match voltti).
+      INTERNAL_JWT_SECRET: ${INTERNAL_JWT_SECRET:-dev-only-insecure-internal-secret-change-me}
 
   voltti:
     build:
@@ -22,6 +24,10 @@ services:
       PORT: 3000
       # Server-side: reach the backend over the compose network.
       AGENT_URL: http://backend:8000/agui
+      # BFF proxy → backend REST (server-side; browser uses the same-origin /api/bff).
+      BACKEND_URL: http://backend:8000
+      # Shared secret for the BFF→backend identity assertion (must match backend).
+      INTERNAL_JWT_SECRET: ${INTERNAL_JWT_SECRET:-dev-only-insecure-internal-secret-change-me}
       COPILOTKIT_TELEMETRY_DISABLED: ${COPILOTKIT_TELEMETRY_DISABLED:-false}
     depends_on:
       - backend

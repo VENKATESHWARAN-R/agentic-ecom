@@ -1,9 +1,12 @@
-// Typed client for the Python backend's REST API. The backend owns all
-// runtime order data (the SQLite DB is the single source of truth); the
-// catalog stays bundled client-side from the shared data/catalog.json seed.
+// Typed client for the backend's REST API, called through the same-origin BFF
+// proxy (src/app/api/bff). The Next server attaches the signed identity assertion
+// and forwards to the backend — the browser never calls the backend directly and
+// holds no backend URL (P4, see docs/target-architecture.md). The proxy maps
+// /api/bff/<x> → <backend>/api/<x>, so paths below are written without /api.
 import type { CartLine, CheckoutDetails, Order, OrderStatus, PersonaId, ReturnEligibility } from "./types";
 
-export const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://localhost:8000";
+/** Same-origin BFF prefix. */
+const BFF = "/api/bff";
 
 export type OrderSummary = {
   number: string;
@@ -61,35 +64,35 @@ export type AgentProfile = {
 const EMPTY_AGENT_PROFILE: AgentProfile = { ordersTotal: 0, ownedHardware: [], ownedRefs: [] };
 
 async function getJson<T>(path: string): Promise<T> {
-  const response = await fetch(`${BACKEND_URL}${path}`, { cache: "no-store" });
+  const response = await fetch(`${BFF}${path}`, { cache: "no-store" });
   if (!response.ok) throw new Error(`Backend request failed: ${path} → ${response.status}`);
   return response.json();
 }
 
 export function fetchPersonas(): Promise<PersonaSummary[]> {
-  return getJson("/api/users");
+  return getJson("/users");
 }
 
 export function fetchAgentProfile(personaId: PersonaId): Promise<AgentProfile> {
   if (personaId === "guest") return Promise.resolve(EMPTY_AGENT_PROFILE);
-  return getJson(`/api/users/${personaId}/agent-profile`);
+  return getJson(`/users/${personaId}/agent-profile`);
 }
 
 export function fetchOrders(personaId: PersonaId): Promise<OrderDetail[]> {
   if (personaId === "guest") return Promise.resolve([]);
-  return getJson(`/api/users/${personaId}/orders`);
+  return getJson(`/users/${personaId}/orders`);
 }
 
 export function fetchOrderSummaries(
   personaId: PersonaId,
   { limit = 5, offset = 0 }: { limit?: number; offset?: number } = {},
 ): Promise<{ total: number; offset: number; returned: number; orders: OrderSummary[] }> {
-  return getJson(`/api/users/${personaId}/orders/summaries?limit=${limit}&offset=${offset}`);
+  return getJson(`/users/${personaId}/orders/summaries?limit=${limit}&offset=${offset}`);
 }
 
 export async function fetchOrderDetail(personaId: PersonaId, orderNumber: string): Promise<OrderDetail | null> {
   const response = await fetch(
-    `${BACKEND_URL}/api/users/${personaId}/orders/${encodeURIComponent(orderNumber)}`,
+    `${BFF}/users/${personaId}/orders/${encodeURIComponent(orderNumber)}`,
     { cache: "no-store" },
   );
   if (response.status === 404) return null;
@@ -102,7 +105,7 @@ export async function placeOrderApi(
   lines: CartLine[],
   details: CheckoutDetails,
 ): Promise<Order> {
-  const response = await fetch(`${BACKEND_URL}/api/orders`, {
+  const response = await fetch(`${BFF}/orders`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ userId: personaId, lines, details }),
