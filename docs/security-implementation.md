@@ -129,3 +129,41 @@ REST (storefront console, logged in as `aino`):
 (await fetch('/api/bff/users/sami/orders')).status   // → 403  (someone else's)
 ```
 Agent: ask the assistant *"what have I ordered recently?"* as Aino → it calls the backend `getMyOrders`, scoped to her session, and renders her orders. As a guest, the same question yields a "sign in to see orders" card — the model never sees another user's data.
+
+---
+
+## Slice 3 · Edge & rate limits (P7)
+
+### The problem it solves
+A public agent endpoint that calls an LLM is a cost-and-availability target: floods, scrapers, and "denial-of-wallet" (burning model spend). One control isn't enough — limits belong at two layers that see different things.
+
+### What exists now — two layers
+**The edge (nginx, [deploy/nginx/voltti.conf](../deploy/nginx/voltti.conf))** — the single public ingress; it sees real client IPs.
+- Per-IP rate limits: general traffic (60/min) and a tighter cap on the LLM endpoint `/api/copilotkit` (20/min); excess → **429**.
+- Request hardening: 256 KB body cap, short header/body timeouts, a concurrent-connection cap, an allow-list of HTTP methods (others → **405**), and `server_tokens off`.
+- TLS termination is configured and ready (enable the `:443` block + drop in a cert).
+- **The backend is no longer published to the host at all** — only the edge is. The browser reaches the Next BFF; the BFF reaches the backend over the private network.
+
+**The chat gateway (backend, [main.py](../backend/src/voltti_backend/main.py))** — it sits behind the BFF, so it sees the BFF, not the browser. It limits by what it *can* trust: the verified identity.
+- A per-identity sliding-window rate limit on `/agui` ([ratelimit.py](../backend/src/voltti_backend/ratelimit.py)); over the limit → **429**. Guests share one coarse bucket — real per-IP limiting for anonymous traffic is the edge's job.
+- Per-run caps on every agent run: max tool calls and a **total-token ceiling** — so a single run can't run away (denial-of-wallet), independent of who triggers it.
+
+```
+Browser ─IP─▶ nginx (per-IP rate · size/timeout caps · method allow-list) ─▶ Next BFF ─▶ backend
+                                                                              (per-identity rate · per-run token/tool caps)
+```
+
+### What's enforced
+- ✅ Edge: per-IP rate limit (429), body-size & timeout caps, method allow-list (405), backend off the host, TLS-ready.
+- ✅ Chat gateway: per-identity request rate limit (429) and per-run tool/token caps.
+
+### See it working
+The rate limiter is unit-tested (sliding window, key isolation, window recovery). The nginx config, run against the app in Docker, behaves as designed:
+```
+GET  /        → 200                    (proxied to the app)
+GET  / ×50    → 21×200 then 29×429     (per-IP limit: burst 20 + 1)
+PUT  /        → 405                    (method not allowed)
+```
+
+### Note (carried to Slice 6)
+The edge runs only under `docker compose` (local `npm run dev` stays a direct `:3000`). The tool-gateway audit logger isn't surfaced by uvicorn's default logging yet — wiring structured logs/metrics is Slice 6.

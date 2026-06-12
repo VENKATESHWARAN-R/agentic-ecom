@@ -16,6 +16,7 @@ from .agent.agent import AgentDeps, agent
 from .api.routes import router
 from .config import FRONTEND_ORIGIN
 from .db import init_db
+from .ratelimit import RateLimiter
 from .security import verify_assertion
 
 
@@ -53,6 +54,12 @@ def _identity_from(request: Request) -> str | None:
         return None
 
 
+# Chat-gateway rate limit (P7): per-identity sliding window. Anonymous traffic is
+# rate-limited by real client IP at the edge (nginx); the backend only sees the
+# BFF, so it limits by the verified identity (guests share one coarse bucket).
+agui_limiter = RateLimiter(limit=30, window_seconds=60.0)
+
+
 @app.post("/agui")
 async def run_agent(request: Request) -> Response:
     """AG-UI endpoint the CopilotKit runtime's HttpAgent talks to.
@@ -63,11 +70,20 @@ async def run_agent(request: Request) -> Response:
     identity comes from the BFF assertion header, never the body (P4).
     Starlette caches the request body, so reading it twice is fine.
     """
+    identity = _identity_from(request)
+    if not agui_limiter.allow(identity or "anon"):
+        return Response(
+            content='{"error":"Too many requests — slow down a moment."}',
+            status_code=429,
+            media_type="application/json",
+        )
     body = await request.json()
-    deps = AgentDeps(context=body.get("context") or [], identity=_identity_from(request))
+    deps = AgentDeps(context=body.get("context") or [], identity=identity)
     return await AGUIAdapter.dispatch_request(
         request,
         agent=agent,
         deps=deps,
-        usage_limits=UsageLimits(request_limit=10),  # mirrors the old maxSteps: 10
+        # Per-run caps (P7): bound tool calls and total tokens so one run can't
+        # run away (denial-of-wallet). The limiter above bounds the request rate.
+        usage_limits=UsageLimits(request_limit=10, tool_calls_limit=10, total_tokens_limit=200_000),
     )

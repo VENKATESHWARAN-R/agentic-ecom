@@ -3,8 +3,9 @@ services:
     build:
       context: .
       dockerfile: backend/Dockerfile
-    ports:
-      - "8000:8000"
+    # No published port — reachable only via the Next BFF on the compose network (P4/P7).
+    expose:
+      - "8000"
     environment:
       AGENT_MODEL: ${AGENT_MODEL:-${COPILOTKIT_MODEL:-anthropic:claude-sonnet-4-6}}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
@@ -18,8 +19,9 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    ports:
-      - "3000:3000"
+    # No published port — only the edge (nginx) is exposed to the host (P7).
+    expose:
+      - "3000"
     environment:
       PORT: 3000
       # Server-side: reach the backend over the compose network.
@@ -31,3 +33,16 @@ services:
       COPILOTKIT_TELEMETRY_DISABLED: ${COPILOTKIT_TELEMETRY_DISABLED:-false}
     depends_on:
       - backend
+
+  # Edge / single ingress (P7): TLS termination, per-IP rate limits, size/timeout
+  # caps, basic hardening. The only service published to the host.
+  edge:
+    image: nginx:1.27-alpine
+    ports:
+      - "80:80"
+      # - "443:443"   # enable with the TLS block in deploy/nginx/voltti.conf
+    volumes:
+      - ./deploy/nginx/voltti.conf:/etc/nginx/conf.d/default.conf:ro
+      # - ./deploy/nginx/certs:/etc/nginx/certs:ro   # mount certs for TLS
+    depends_on:
+      - voltti
