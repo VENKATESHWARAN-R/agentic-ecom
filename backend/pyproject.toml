@@ -9,6 +9,7 @@ dependencies = [
     "pydantic-ai-slim[ag-ui,anthropic,openai,google]>=1.107.0",
     "sqlmodel>=0.0.24",
     "python-dotenv>=1.0",
+    "pyjwt>=2.13.0",
 ]
 
 [dependency-groups]

@@ -13,6 +13,7 @@
     "@ag-ui/client": "latest",
     "@copilotkit/react-core": "latest",
     "@copilotkit/runtime": "latest",
+    "jose": "^6.2.3",
     "lucide-react": "latest",
     "next": "latest",
     "react": "latest",

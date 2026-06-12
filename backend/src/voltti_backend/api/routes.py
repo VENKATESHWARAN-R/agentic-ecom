@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlmodel import Session
 
@@ -27,6 +27,7 @@ from ..domain.orders import (
     owned_hardware_profile,
 )
 from ..models import OrderRow
+from ..security import optional_identity
 
 router = APIRouter(prefix="/api")
 
@@ -36,6 +37,14 @@ RETURN_POLICY = "30-day free returns from the delivery date; item unopened or un
 @router.get("/health")
 def health() -> dict[str, str]:
     return {"status": "ok"}
+
+
+@router.get("/me")
+def me(identity: str | None = Depends(optional_identity)) -> dict[str, Any]:
+    """Whoami for the BFF-asserted session. Identity comes from the signed
+    assertion (P4) — never from a client-supplied parameter. Proves the
+    BFF→backend trust channel end to end."""
+    return {"identity": identity, "signedIn": identity is not None}
 
 
 # ---------------------------------------------------------------- catalog

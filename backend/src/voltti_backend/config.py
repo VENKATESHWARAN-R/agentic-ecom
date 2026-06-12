@@ -19,3 +19,8 @@ AGENT_MODEL = os.getenv("AGENT_MODEL") or os.getenv("COPILOTKIT_MODEL") or "anth
 DB_PATH = Path(os.getenv("VOLTTI_DB_PATH") or BACKEND_DIR / "voltti.db")
 
 FRONTEND_ORIGIN = os.getenv("FRONTEND_ORIGIN", "http://localhost:3000")
+
+# Shared secret for the BFF→backend identity assertion (P4). The Next.js BFF
+# signs a short-lived JWT with this; the backend verifies it. Mock credential,
+# real enforcement — set a strong value via env in any non-dev environment.
+INTERNAL_JWT_SECRET = os.getenv("INTERNAL_JWT_SECRET") or "dev-only-insecure-internal-secret-change-me"
