@@ -1,52 +1,45 @@
 # Runbook
 
-This runbook covers setup, model/provider configuration, Docker, validation, and common troubleshooting.
+Setup, configuration, Docker, and validation for Voltti.
 
 ## Prerequisites
 
-- Node.js 22 recommended.
-- npm.
-- One model provider API key if you want live CopilotKit chat.
-- Docker Desktop or Docker Engine if using Compose.
+- Node.js 22 and npm.
+- One model provider API key for live chat (the storefront itself needs none).
+- Docker if using Compose.
 
 ## Local Setup
 
 ```bash
 npm install
-cp .env.example .env
+cp .env.example .env   # set COPILOTKIT_MODEL and the matching key
 npm run dev
 ```
 
-Open:
-
-```text
-http://localhost:3000
-```
+Open `http://localhost:3000`.
 
 ## Environment Variables
 
 ### `COPILOTKIT_MODEL`
 
-Controls which model the CopilotKit BuiltInAgent uses.
-
-Examples:
+Selects the model for the CopilotKit BuiltInAgent. Both `provider:model` and `provider/model` forms parse:
 
 ```bash
+COPILOTKIT_MODEL=anthropic:claude-sonnet-4-6
+COPILOTKIT_MODEL=anthropic:claude-haiku-4-5-20251001
 COPILOTKIT_MODEL=openai/gpt-4o-mini
-COPILOTKIT_MODEL=openai/gpt-4.1-mini
-COPILOTKIT_MODEL=anthropic/claude-3.5-haiku
 COPILOTKIT_MODEL=google/gemini-2.5-flash
 ```
 
+If unset, the runtime falls back to `openai/gpt-4o-mini` (see `src/app/api/copilotkit/route.ts`).
+
 ### Provider Keys
 
-Set the key that matches the provider prefix in `COPILOTKIT_MODEL`.
+Set the key matching the provider prefix:
 
-```bash
-OPENAI_API_KEY=...
-ANTHROPIC_API_KEY=...
-GOOGLE_API_KEY=...
-```
+- `anthropic` → `ANTHROPIC_API_KEY`
+- `openai` → `OPENAI_API_KEY`
+- `google` → `GOOGLE_API_KEY`
 
 ### Optional
 
@@ -55,114 +48,42 @@ COPILOTKIT_TELEMETRY_DISABLED=true
 PORT=3000
 ```
 
-## Provider Switching
-
-To switch from OpenAI to Anthropic:
+## Docker
 
 ```bash
-COPILOTKIT_MODEL=anthropic/claude-3.5-haiku
-ANTHROPIC_API_KEY=...
-npm run dev
+cp .env.example .env   # set model + key
+docker compose up --build
 ```
 
-To switch to Google:
+The multi-stage Dockerfile runs `npm run build` and serves with `next start` on port 3000; `docker-compose.yml` passes `COPILOTKIT_MODEL` and the provider keys through from `.env` (or the shell):
 
 ```bash
-COPILOTKIT_MODEL=google/gemini-2.5-flash
-GOOGLE_API_KEY=...
-npm run dev
+COPILOTKIT_MODEL=anthropic:claude-sonnet-4-6 ANTHROPIC_API_KEY=... docker compose up --build
 ```
 
-If the model provider or model name is invalid, the app can still render, but CopilotKit chat requests will fail when the runtime calls the provider.
+Stop with `docker compose down`.
 
 ## Validation
 
-Run these before handing off changes:
+Run before handing off changes:
 
 ```bash
-npm run lint
 npm run typecheck
-npm run build
+npm run lint
+npm run build   # also prerenders all category and product pages
 ```
 
 Manual smoke test:
 
-1. Open the storefront.
-2. Click "Build gaming setup".
-3. Confirm products become selected and the advisor panel updates.
-4. Add a product to cart.
-5. Open cart and continue to mock checkout.
-6. Open the copilot and ask for discounted phones under €500.
-
-## Docker Compose
-
-Create `.env`:
-
-```bash
-cp .env.example .env
-```
-
-Edit `.env` with the provider key and model you want.
-
-Run:
-
-```bash
-docker compose up --build
-```
-
-Open:
-
-```text
-http://localhost:3000
-```
-
-Stop:
-
-```bash
-docker compose down
-```
-
-## Docker Without `.env`
-
-You can also pass variables from the shell:
-
-```bash
-COPILOTKIT_MODEL=openai/gpt-4o-mini OPENAI_API_KEY=... docker compose up --build
-```
+1. Browse a category, apply a max-price filter, confirm the URL query updates.
+2. Open a product page, add to cart, change quantity in the cart, proceed through the mock checkout to the confirmation screen.
+3. Select two PC parts for comparison (e.g. an Intel CPU and an AM5 board) and confirm the compatibility warning appears in the modal.
+4. Open the assistant and ask for discounted phones under €500 — it should search, open the filtered listing, and render result cards in chat.
+5. Ask it to add a product to the cart — an approval card must appear; nothing is added until you click.
 
 ## Troubleshooting
 
-### Storefront loads, chat fails
-
-Check that the provider key matches `COPILOTKIT_MODEL`.
-
-Examples:
-
-- `openai/...` needs `OPENAI_API_KEY`.
-- `anthropic/...` needs `ANTHROPIC_API_KEY`.
-- `google/...` needs `GOOGLE_API_KEY`.
-
-### Docker build is slow
-
-The first build installs dependencies and compiles Next.js. Later builds should reuse Docker cache unless `package.json` or `package-lock.json` changes.
-
-### Port 3000 is already in use
-
-Local dev:
-
-```bash
-npm run dev -- -p 3001
-```
-
-Docker Compose:
-
-Change the port mapping in `docker-compose.yml`:
-
-```yaml
-ports:
-  - "3001:3000"
-```
-
-### Compatibility warning missing
-
-Make sure selected component products include compatibility metadata in `src/lib/catalog.ts`. CPU and motherboard products need socket fields.
+- **Storefront loads, chat fails** — the provider key doesn't match `COPILOTKIT_MODEL`, or the model name is invalid. The app renders regardless; only runtime calls fail.
+- **Cart looks empty on first paint** — cart state hydrates from localStorage after mount (`voltti.cart.v1`); this is expected for a frame.
+- **Port 3000 in use** — `npm run dev -- -p 3001`, or change the port mapping in `docker-compose.yml`.
+- **Compatibility warning missing** — the parts involved need `compat` metadata in `src/lib/catalog.ts` (CPU/board need `socket`, GPU needs `gpuLengthMm`, etc.).

@@ -1,5 +1,5 @@
 services:
-  signalcart:
+  voltti:
     build:
       context: .
       dockerfile: Dockerfile
@@ -7,7 +7,7 @@ services:
       - "3000:3000"
     environment:
       PORT: 3000
-      COPILOTKIT_MODEL: ${COPILOTKIT_MODEL:-openai/gpt-4o-mini}
+      COPILOTKIT_MODEL: ${COPILOTKIT_MODEL:-anthropic:claude-sonnet-4-6}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       GOOGLE_API_KEY: ${GOOGLE_API_KEY:-}
