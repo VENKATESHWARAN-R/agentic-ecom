@@ -100,12 +100,12 @@ An honest map of each principle against the current code, and the gap the roadma
 
 ## Roadmap
 
-This constitution is **Step 1** of a four-step effort. Mechanisms come last — each becomes "principle _X_ enforced at boundary _Y_," never a control adopted for its own sake.
+This constitution was **Step 1** of a four-step effort; all four are now complete. Mechanisms came last — each is "principle _X_ enforced at boundary _Y_," never a control adopted for its own sake.
 
 1. **Principles & philosophy** — _this document._
-2. **Layered target architecture & trust boundaries** — _done → [target-architecture.md](target-architecture.md)._ The diagram for our two services and where each control plugs in.
+2. **Layered architecture & trust boundaries** — _done → [architecture.md](architecture.md)._ The system diagram and where each control plugs in.
 3. **Layer classification** — _done → [layer-classification.md](layer-classification.md)._ Risk-rank every tool, label every data source, define the mock-but-real-shaped authz model.
-4. **Mechanisms** — edge/nginx, input safety (Prompt/LLM Guard), the Pydantic AI tool gateway/policy layer, rate limits, output validation, audit logging.
+4. **Mechanisms** — _done, in 6 slices → [security-implementation.md](security-implementation.md)._ Edge/nginx, input safety (Prompt Guard), the Pydantic AI tool gateway, rate limits, output validation, Logfire audit.
 
 ## See also
 

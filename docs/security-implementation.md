@@ -1,6 +1,6 @@
 # Security — As-Built Implementation & Flows
 
-How the security layers **actually work today**, in plain language — the flows, what exists, why, and how, so you can understand the system without reading the code. This is the as-built companion to the planned design in [target-architecture.md](target-architecture.md); each slice from the [roadmap](security-principles.md#roadmap) appends a section here as it lands.
+How the security layers **actually work today**, in plain language — the flows, what exists, why, and how, so you can understand the system without reading the code. For the system-level picture (services, trust boundaries, where each control lives) see [architecture.md](architecture.md); for *why* each control exists see [security-principles.md](security-principles.md). One section per slice of the [roadmap](security-principles.md#roadmap).
 
 **Status:** Slices 1–6 — ✅ built & verified. Identity, authorization, edge/limits, input-safety, output-validation, and observability are all in place; this is the complete medium-risk control set.
 

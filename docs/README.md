@@ -5,11 +5,9 @@ Working documentation for the Voltti agentic e-commerce POC, written for contrib
 ## Reading Order
 
 0. [Security & Design Principles](security-principles.md): **the governing constitution — read before any change-related decision or code change.** Every other doc and change defers to it.
-1. [Architecture](architecture.md): domain layer, the two access paths (UI and agent), data flow, and state model.
-   - [Target Architecture](target-architecture.md): the ratified security/architecture target (Phase 2) — BFF session, tool gateway, edge, output validation. Not yet implemented.
-   - [Layer Classification](layer-classification.md): per-tool risk tiers, data trust labels, and the authz/ownership model (Phase 3). Design only.
-   - [Security Implementation](security-implementation.md): how the security layers actually work today — as-built flows, what/why/how, updated per slice.
-   - [Security Implementation Plan](security-implementation-plan.md): **continuation guide** — status of all 6 slices, and the detailed remaining work (where & why). Start here to resume the hardening.
+1. [Architecture](architecture.md): the as-built system — the three services + edge, trust boundaries and where each control lives, the two access paths (UI and agent), data flow, and state model.
+   - [Layer Classification](layer-classification.md): per-tool risk tiers, data trust labels, and the authz/ownership model.
+   - [Security Implementation](security-implementation.md): how each security layer actually works — as-built flows with sequence diagrams, one section per slice.
 2. [Agent Contract](agent-contract.md): the tool surface, safety rules, and generative UI conventions.
 3. [Features](features.md): current feature set and the signature user journeys.
 4. [Design](design.md): visual language, layout zones, and interaction rules.
