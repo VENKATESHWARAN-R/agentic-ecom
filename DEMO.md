@@ -3,7 +3,8 @@
 Scenarios to showcase the agentic shopping POC. Each one lists what to type into the
 assistant (bottom-right chat bubble), what happens on screen, and what it demonstrates.
 
-**Before you start:** `npm run dev`, open http://localhost:3000, make sure `.env` has
+**Before you start:** `./scripts/dev.sh` (runs the agent backend on :8000 and the storefront
+on :3000 — both are needed), open http://localhost:3000, make sure `.env` has
 `COPILOTKIT_MODEL` and a matching API key. An empty cart gives the cleanest run-through.
 Switch demo accounts from the **avatar menu** in the header (top right) — scenarios 11–16
 depend on who's signed in.

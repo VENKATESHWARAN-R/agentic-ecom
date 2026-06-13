@@ -1,4 +1,17 @@
 services:
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      AGENT_MODEL: ${AGENT_MODEL:-${COPILOTKIT_MODEL:-anthropic:claude-sonnet-4-6}}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      GOOGLE_API_KEY: ${GOOGLE_API_KEY:-}
+      FRONTEND_ORIGIN: ${FRONTEND_ORIGIN:-http://localhost:3000}
+
   voltti:
     build:
       context: .
@@ -7,8 +20,8 @@ services:
       - "3000:3000"
     environment:
       PORT: 3000
-      COPILOTKIT_MODEL: ${COPILOTKIT_MODEL:-anthropic:claude-sonnet-4-6}
-      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
-      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
-      GOOGLE_API_KEY: ${GOOGLE_API_KEY:-}
+      # Server-side: reach the backend over the compose network.
+      AGENT_URL: http://backend:8000/agui
       COPILOTKIT_TELEMETRY_DISABLED: ${COPILOTKIT_TELEMETRY_DISABLED:-false}
+    depends_on:
+      - backend

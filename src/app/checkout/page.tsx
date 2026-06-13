@@ -50,7 +50,7 @@ export default function CheckoutPage() {
   const set = (key: keyof CheckoutDetails) => (event: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
     updateCheckoutDraft({ [key]: event.target.value });
 
-  const submit = (event: React.FormEvent) => {
+  const submit = async (event: React.FormEvent) => {
     event.preventDefault();
     const required: (keyof CheckoutDetails)[] = ["fullName", "email", "address", "city", "postalCode", "country"];
     const missing = required.filter((key) => !checkoutDraft[key]?.toString().trim());
@@ -59,7 +59,8 @@ export default function CheckoutPage() {
       return;
     }
     setError(null);
-    placeOrder(checkoutDraft as CheckoutDetails);
+    const order = await placeOrder(checkoutDraft as CheckoutDetails);
+    if (!order) setError("The order could not be placed — is the store backend running?");
   };
 
   return (

@@ -26,9 +26,9 @@ A quick reference for what the agent can and cannot do.
 
 The LLM orchestrates and explains; the domain services own the facts. Every product claim — existence, price, stock, specs, compatibility — must come from a tool result, never from model knowledge.
 
-## Server Tools
+## Agent Tools
 
-Defined in `src/app/api/copilotkit/route.ts`, executed in the runtime. All are deterministic wrappers over `src/lib/services.ts` and return compact `productSummary` shapes.
+Defined in `backend/src/voltti_backend/agent/agent.py`, executed by the Pydantic AI agent in the Python backend. All are deterministic wrappers over the backend domain layer (`backend/src/voltti_backend/domain/`) and return compact `productSummary` shapes. Their names are part of the contract — the storefront's generative-UI renderers key on them.
 
 | Tool | Purpose |
 |---|---|
@@ -41,7 +41,7 @@ Defined in `src/app/api/copilotkit/route.ts`, executed in the runtime. All are d
 
 ## Frontend Tools
 
-Defined in `src/components/copilot/shopping-assistant.tsx`, executed in the browser via the Next router and `useShop()`. They steer what the user sees but never mutate the cart. The order/return tools are **identity-scoped**: they read the active persona directly, so there is no `userId` parameter for the model to supply (see Safety Rules).
+Defined in `src/components/copilot/shopping-assistant.tsx`, executed in the browser via the Next router and `useShop()` (forwarded to the agent automatically over AG-UI). They steer what the user sees but never mutate the cart. The order/return tools are **identity-scoped**: they read the active persona directly and call the backend REST API with it, so there is no `userId` parameter for the model to supply (see Safety Rules).
 
 | Tool | Purpose |
 |---|---|

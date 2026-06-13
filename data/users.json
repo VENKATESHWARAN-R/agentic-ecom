@@ -1,0 +1,38 @@
+{
+  "elina": {
+    "id": "elina",
+    "name": "Elina Laine",
+    "email": "elina.laine@example.com",
+    "personaLabel": "New here · first visit"
+  },
+  "aino": {
+    "id": "aino",
+    "name": "Aino Virtanen",
+    "email": "aino.virtanen@example.com",
+    "personaLabel": "Returning builder · mid-PC-build",
+    "savedAddress": {
+      "fullName": "Aino Virtanen",
+      "email": "aino.virtanen@example.com",
+      "address": "Mannerheimintie 12 A 4",
+      "city": "Helsinki",
+      "postalCode": "00100",
+      "country": "Finland"
+    },
+    "preferredPayment": "invoice"
+  },
+  "sami": {
+    "id": "sami",
+    "name": "Sami Korhonen",
+    "email": "sami.korhonen@example.com",
+    "personaLabel": "Power user · long history",
+    "savedAddress": {
+      "fullName": "Sami Korhonen",
+      "email": "sami.korhonen@example.com",
+      "address": "Itämerenkatu 14",
+      "city": "Helsinki",
+      "postalCode": "00180",
+      "country": "Finland"
+    },
+    "preferredPayment": "card"
+  }
+}

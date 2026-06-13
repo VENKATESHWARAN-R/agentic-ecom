@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { z } from "zod";
 import {
   CopilotSidebar,
@@ -20,12 +20,11 @@ import {
   getProducts,
 } from "@/lib/services";
 import {
-  getOrderDetail,
-  getOrdersFor,
-  ordersForUser,
-  ownedHardwareProfile,
-  seedOrders,
-} from "@/lib/orders";
+  fetchAgentProfile,
+  fetchOrderDetail,
+  fetchOrderSummaries,
+  type AgentProfile,
+} from "@/lib/api";
 import { useShop } from "@/lib/shop-context";
 import type { CheckoutDetails, OrderStatus, Product, ReturnEligibility } from "@/lib/types";
 import { ProductVisual } from "@/components/product-visual";
@@ -177,41 +176,28 @@ export function ShoppingAssistant() {
   const router = useRouter();
   const pathname = usePathname();
   const shop = useShop();
-  const { personaId, sessionOrders } = shop;
+  const { personaId, lastOrder } = shop;
 
-  // Derived, bounded customer memory (see docs/architecture.md). Recomputed only when the
-  // persona or this session's orders change. The same ≤6-entry profile whether
-  // the customer has 3 orders or 1,000. ownedRefs (ids + provenance) are what
-  // the agent passes to checkCompatibility and what the safety net re-checks.
-  const ownedParts = useMemo(
-    () => ownedHardwareProfile(personaId, [...sessionOrders, ...seedOrders]),
-    [personaId, sessionOrders],
-  );
-  const ownedRefs = useMemo(
-    () => ownedParts.map((part) => ({ productId: part.productId, orderNumber: part.orderNumber, orderedOn: part.orderedOn })),
-    [ownedParts],
-  );
-  const ownedHardware = useMemo(
-    () =>
-      ownedParts.map((part) => {
-        const product = getProduct(part.productId);
-        return {
-          productId: part.productId,
-          category: part.category,
-          socket: product?.compat?.socket ?? null,
-          memoryType: product?.compat?.memoryType ?? null,
-          wifi: Boolean(product?.tags.includes("wifi")),
-          orderNumber: part.orderNumber,
-          orderedOn: part.orderedOn,
-          inTransit: Boolean(part.inTransit),
-        };
-      }),
-    [ownedParts],
-  );
-  const ordersTotal = useMemo(
-    () => ordersForUser(personaId, [...sessionOrders, ...seedOrders]).length,
-    [personaId, sessionOrders],
-  );
+  // Derived, bounded customer memory (see docs/architecture.md): the backend
+  // computes the same ≤6-entry owned-hardware profile whether the customer has
+  // 3 orders or 1,000. Refetched when the persona changes or an order is
+  // placed. ownedRefs (ids + provenance) are what the agent passes to
+  // checkCompatibility and what the safety net re-checks.
+  const [agentProfile, setAgentProfile] = useState<AgentProfile>({ ordersTotal: 0, ownedHardware: [], ownedRefs: [] });
+  useEffect(() => {
+    let cancelled = false;
+    fetchAgentProfile(personaId)
+      .then((profile) => {
+        if (!cancelled) setAgentProfile(profile);
+      })
+      .catch(() => {
+        if (!cancelled) setAgentProfile({ ordersTotal: 0, ownedHardware: [], ownedRefs: [] });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [personaId, lastOrder]);
+  const { ordersTotal, ownedHardware, ownedRefs } = agentProfile;
 
   // ---------- What the agent can see ----------
   // Context budget (see docs/architecture.md): derived/bounded facts only. Raw order history is
@@ -392,7 +378,10 @@ export function ShoppingAssistant() {
         return "Checkout form updated with the provided details. The user can review them on the checkout page.";
       },
     },
-    [shop.applySavedAddress, shop.updateCheckoutDraft],
+    // NOTE: deps are serialized (JSON.stringify) by useFrontendTool to decide
+    // re-registration — functions stringify to null and never trigger an
+    // update, so depend on the underlying state instead.
+    [personaId],
   );
 
   // ---------- Identity-scoped order/return tools (frontend; read the active persona) ----------
@@ -408,13 +397,12 @@ export function ShoppingAssistant() {
       }),
       handler: async ({ limit, offset }) => {
         if (personaId === "guest") return { signedIn: false };
-        const merged = [...sessionOrders, ...seedOrders];
-        const page = getOrdersFor(personaId, { limit: limit ?? 5, offset: offset ?? 0 }, merged);
-        return { signedIn: true, total: page.total, offset: offset ?? 0, returned: page.orders.length, orders: page.orders };
+        const page = await fetchOrderSummaries(personaId, { limit: limit ?? 5, offset: offset ?? 0 });
+        return { signedIn: true, total: page.total, offset: page.offset, returned: page.returned, orders: page.orders };
       },
       render: ({ status, result }) => <OrdersCard status={status} result={result} />,
     },
-    [personaId, sessionOrders],
+    [personaId],
   );
 
   useFrontendTool(
@@ -425,13 +413,12 @@ export function ShoppingAssistant() {
       parameters: z.object({ orderNumber: z.string().describe("Order number, e.g. VLT-1002.") }),
       handler: async ({ orderNumber }) => {
         if (personaId === "guest") return { signedIn: false };
-        const merged = [...sessionOrders, ...seedOrders];
-        const detail = getOrderDetail(personaId, orderNumber, merged);
+        const detail = await fetchOrderDetail(personaId, orderNumber);
         if (!detail) return { signedIn: true, found: false, orderNumber };
         return {
           signedIn: true,
           found: true,
-          policy: "30-day free returns from the delivery date; item unopened or unused. Drop off at any Posti point (demo).",
+          policy: detail.policy,
           order: {
             number: detail.number,
             status: detail.status,
@@ -443,7 +430,7 @@ export function ShoppingAssistant() {
       },
       render: ({ status, result }) => <ReturnInfoCard status={status} result={result} />,
     },
-    [personaId, sessionOrders],
+    [personaId],
   );
 
   // ---------- Human-in-the-loop approvals ----------
@@ -576,13 +563,13 @@ export function ShoppingAssistant() {
                   </button>
                   <button
                     className="btn btn-primary btn-sm"
-                    onClick={() => {
-                      const order = shop.placeOrder(shop.checkoutDraft as CheckoutDetails);
+                    onClick={async () => {
+                      const order = await shop.placeOrder(shop.checkoutDraft as CheckoutDetails);
                       if (order) {
                         router.push("/checkout");
                         respond({ placed: true, orderNumber: order.number, total: order.total });
                       } else {
-                        respond({ placed: false, reason: "Cart was empty." });
+                        respond({ placed: false, reason: "The order could not be placed — the cart may be empty or the store backend unreachable." });
                       }
                     }}
                   >
