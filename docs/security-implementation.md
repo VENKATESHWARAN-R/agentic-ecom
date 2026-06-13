@@ -2,7 +2,7 @@
 
 How the security layers **actually work today**, in plain language — the flows, what exists, why, and how, so you can understand the system without reading the code. This is the as-built companion to the planned design in [target-architecture.md](target-architecture.md); each slice from the [roadmap](security-principles.md#roadmap) appends a section here as it lands.
 
-**Status:** Slices 1–4 (identity, authorization, edge/limits, input-safety) — ✅ built & verified · Slices 5–6 — pending.
+**Status:** Slices 1–5 (identity, authorization, edge/limits, input-safety, output-validation) — ✅ built & verified · Slice 6 (observability) — pending.
 
 ---
 
@@ -238,3 +238,50 @@ End to end, with the guard running (`uv --directory guard run uvicorn voltti_gua
 // Stop the guard service → chat still works (fails open, logs a warning)
 ```
 Under `docker compose`, the guard is an internal-only service (`expose: 8001`); the backend reaches it at `http://guard:8001`, and the image **bakes the model weights** at build time (HF token as a build secret) so the container runs fully offline.
+
+---
+
+## Slice 5 · Output validation (P6)
+
+### The problem it solves
+Every earlier slice guards an *input* boundary. The last boundary runs the other way: what the agent sends *back*. A model can leak PII or secrets, parrot its own system prompt, or emit a bogus link; and a tool could return more fields than anyone asked for. The output is the final place data crosses from "ours" to "the user's screen" — it needs a check (**P6**).
+
+### What exists now — filter the data, audit the text
+The control splits along what each surface can actually guarantee, because **AG-UI streams the model's words to the browser token-by-token** — once a word is sent, it can't be recalled.
+
+| Surface | Control | File |
+|---|---|---|
+| **Tool results** (structured, server-side) | **Fully filtered** before the model or UI sees them | [output_validation.py](../backend/src/voltti_backend/agent/output_validation.py) · `OutputValidationToolset` |
+| **The model's free text** (streamed) | **Best-effort audit** of the completed reply | `audit_final_text` (via `/agui` `on_complete`) |
+| **The model's behaviour** | Explicit output rules in the prompt | [prompt.md](../backend/src/voltti_backend/agent/prompt.md) |
+
+**Tool-result filtering is the strong half.** The agent's tools now live on a toolset wrapped by `OutputValidationToolset`; **every** tool result passes through `filter_result` before it's handed back. That function walks the result and **drops any field on a PII/secret deny-list** (`email`, `address`, `postalCode`, `fullName`, `savedAddress`, `details`, `userId`, … — straight from the [field table](layer-classification.md#2-data-layer--trust-labels--field-sensitivity)) and scans string values for secrets and off-site links. Today's tool results are already curated (`product_summary`, order summaries), so the filter is normally a no-op — its job is to make a future regression (a raw `Order.details` dump, a stray `userId`) **structurally unable** to leak, no matter which tool slipped. A drop is logged as a bug signal.
+
+**The model can't leak what it never had.** Identity-scoped data is filtered on the way in, the saved address never transits the model, and the context is already sanitized — so PII isn't in the model to begin with. The one sensitive thing the model *does* hold is its own system prompt; that's covered by an explicit prompt rule (never reveal/paraphrase it, even when told to "ignore previous instructions") plus the input guard from Slice 4.
+
+**Free text gets an honest best-effort check.** Because the reply has already streamed, `audit_final_text` doesn't redact — it **scans the finished text** for secret-shaped strings, a system-prompt echo, or an unsafe link and **logs** any finding. That's observability (it feeds Slice 6), not prevention; the prevention is keeping sensitive data out of the model in the first place.
+
+```mermaid
+sequenceDiagram
+    participant Model as Pydantic AI agent
+    participant OV as OutputValidationToolset
+    participant Tool as Domain tool
+    participant B as Browser
+    Model->>OV: call getMyOrders
+    OV->>Tool: run tool
+    Tool-->>OV: result (curated dict)
+    OV->>OV: filter_result → drop any forbidden key, scan strings
+    OV-->>Model: filtered result  ·  (audit if anything dropped)
+    Model-->>B: streams reply + renders the orders card
+    Note over Model,B: on run complete → audit_final_text scans the text (best-effort, logged)
+```
+
+### What's enforced vs. deferred
+- ✅ **Enforced now:** no tool result can carry a deny-listed PII/secret field to the model or UI — filtered server-side, unbypassable; tool-result strings scanned for secrets/unsafe-links; explicit prompt rules against prompt/secret disclosure.
+- 🟡 **Best-effort (by nature):** free-text leak scanning is post-hoc audit — SSE has already streamed the words. The real guarantee is structural: sensitive data never reaches the model.
+- 🟡 **Deferred:** the `voltti.outputvalidation` audit lines are plain `logger` calls today; Slice 6 turns them into structured Logfire events/metrics.
+
+### See it working
+Unit-tested in [test_output_validation.py](../backend/tests/test_output_validation.py): forbidden keys are dropped at any nesting depth, a curated order page passes through byte-identical, the scanners catch a JWT/`hf_`/`sk-` string, a system-prompt echo, and an off-site link, and — end to end through a real `Agent` — a deliberately leaky tool's `email` field is stripped before it reaches the model.
+
+Live, the orders card renders exactly as before (the filter is a no-op on already-curated data — proving no regression); inject an extra `email` field into a tool's return and it's gone before render, with a `voltti.outputvalidation … dropped=['email']` line in the backend log.

@@ -23,7 +23,7 @@ Reading order for a cold start: **this doc → 1 → 2 → 3 → 4**.
 | 2 — Authz + tool gateway | P2/P5 | REST ownership (IDOR fix) + agent tool gateway, identity-scoped backend tools | ✅ done (`99325f9`, `af72c1e`) |
 | 3 — Edge + limits | P7 | nginx single ingress + per-IP/per-identity rate limits + per-run token caps | ✅ done (`7bdcf49`) |
 | 4 — Input safety | P3/P7 | Prompt-injection/jailbreak screen + abuse scoring | ✅ done (`f92f77c` + 4b) |
-| 5 — Output validation | P6 | Leak/field-filter/unsafe-link checks on agent output | ⬜ not started |
+| 5 — Output validation | P6 | Leak/field-filter/unsafe-link checks on agent output | ✅ done |
 | 6 — Observability | P7 | Logfire audit + the §19 metrics | ⬜ not started |
 
 ## 2. Environment & how to run
@@ -63,10 +63,7 @@ The classifier is now called before every agent run. As-built flow + diagram: [s
 **Why:** the model's output is the last trust boundary — it can leak PII/secrets/the system prompt, hallucinate policy, or emit unsafe links. Validate before it reaches the user.
 
 **Where & what:**
-- A backend **output-validation layer** between the agent and the response. Checks (guide §16, [layer-classification.md](layer-classification.md) §2 field table): PII / secret / internal-prompt leakage, unsafe/external links, and **field-filter tool results to what was asked** (no full-record dumps).
-- **Note our current exposure is low** by construction: tool results are already bounded (`productSummary`, order summaries, computed eligibility — no address/email), and the saved address never transits the model. So Slice 5 is mostly *guardrails to keep it that way* + link/secret/prompt-leak scanning of free text.
-- **Streaming caveat** (in [target-architecture.md](target-architecture.md)): AG-UI streams over SSE, so full free-text validation mid-stream is limited. Validate **structured tool results fully**; do best-effort checks on text; prefer structured responses for anything high-risk. **Investigate the hook point**: Pydantic AI `@agent.output_validator` / result hooks for structured output, and/or a post-stream check. Document what you choose.
-- **Verify:** a tool result with extra fields gets filtered; a crafted response containing a fake external link / a secret-looking string is flagged. Add tests.
+**✅ DONE.** As-built flow + diagram: [security-implementation.md](security-implementation.md) "Slice 5 · Output validation". What landed: the agent's 8 tools moved onto a `FunctionToolset` wrapped by `OutputValidationToolset` (a `WrapperToolset`) — every tool result runs through `filter_result` (drops deny-listed PII/secret keys at any depth; scans strings for secrets/unsafe-links) **before** the model/UI sees it. Free text gets a best-effort `audit_final_text` via `dispatch_request(on_complete=…)` (post-stream scan + log, since SSE can't un-send). `@agent.output_validator` was ruled out — it only fires for structured output, ours is plain text. Prompt hardened with explicit output rules. Tests in `test_output_validation.py` (incl. a real-`Agent` integration proving a leaky tool's field is stripped before the model). `voltti.outputvalidation` audit logs feed Slice 6.
 
 ### Slice 6 — observability (P7)
 **Why:** "if you can't observe the agent, you can't safely operate it." Also closes a known gap — the tool-gateway audit logger (`policy.py` `logger.info`) is **not surfaced** by uvicorn's default logging today.

@@ -25,6 +25,7 @@ from pydantic_ai.ui.ag_ui import AGUIAdapter
 from . import guard_client
 from .abuse import POINTS_GUARD_BLOCK, abuse
 from .agent.agent import AgentDeps, agent
+from .agent.output_validation import audit_final_text
 from .api.routes import router
 from .config import FRONTEND_ORIGIN, GUARD_ENABLED
 from .db import init_db
@@ -150,4 +151,19 @@ async def run_agent(request: Request) -> Response:
         # Per-run caps (P7): bound tool calls and total tokens so one run can't
         # run away (denial-of-wallet). The limiter above bounds the request rate.
         usage_limits=UsageLimits(request_limit=10, tool_calls_limit=10, total_tokens_limit=200_000),
+        # Output validation (P6): tool results are filtered in the toolset wrapper;
+        # this audits the completed free text for leaks (best-effort — SSE has
+        # already streamed it, so this is for observability, not prevention).
+        on_complete=_audit_run,
     )
+
+
+def _audit_run(result: object) -> None:
+    """on_complete hook: scan the agent's final text for leaks (P6). Defensive — it
+    must never break a run, so any error is swallowed."""
+    try:
+        output = getattr(result, "output", None)
+        if isinstance(output, str):
+            audit_final_text(output)
+    except Exception:  # observability must not affect the response
+        pass
