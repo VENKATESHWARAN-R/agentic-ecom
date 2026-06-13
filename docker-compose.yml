@@ -14,6 +14,27 @@ services:
       FRONTEND_ORIGIN: ${FRONTEND_ORIGIN:-http://localhost:3000}
       # Shared secret for the BFF→backend identity assertion (must match voltti).
       INTERNAL_JWT_SECRET: ${INTERNAL_JWT_SECRET:-dev-only-insecure-internal-secret-change-me}
+      # Input-safety guard (P3): the backend screens each user message here before
+      # running the agent. Fail-open by default — a guard outage doesn't take chat down.
+      GUARD_ENABLED: ${GUARD_ENABLED:-true}
+      GUARD_URL: http://guard:8001
+      GUARD_FAIL_OPEN: ${GUARD_FAIL_OPEN:-true}
+    depends_on:
+      - guard
+
+  # Input-safety service (P3): a standalone Prompt Guard classifier. Separate so
+  # its heavy ML deps (torch/transformers) stay out of the agent backend and it can
+  # be upgraded/scaled/disabled on its own. Internal only — never published.
+  guard:
+    build:
+      context: ./guard
+      secrets:
+        - hf_token
+    expose:
+      - "8001"
+    environment:
+      GUARD_MODEL_ID: ${GUARD_MODEL_ID:-meta-llama/Llama-Prompt-Guard-2-22M}
+      GUARD_THRESHOLD: ${GUARD_THRESHOLD:-0.5}
 
   voltti:
     build:
@@ -46,3 +67,9 @@ services:
       # - ./deploy/nginx/certs:/etc/nginx/certs:ro   # mount certs for TLS
     depends_on:
       - voltti
+
+# HF token for the gated Prompt Guard weights — used only as a build secret for the
+# guard image (baked weights, never a layer). Reads from the HF_TOKEN env / .env.
+secrets:
+  hf_token:
+    environment: HF_TOKEN

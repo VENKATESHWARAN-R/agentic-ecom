@@ -12,6 +12,8 @@ from __future__ import annotations
 
 import logging
 
+from ..abuse import POINTS_UNAUTHORIZED_TOOL, abuse
+
 logger = logging.getLogger("voltti.toolgateway")
 
 READ_ONLY = "read-only"  # T1 — public catalog & deterministic recommendations
@@ -39,4 +41,9 @@ def authorize(tool: str, identity: str | None) -> str | None:
     request's verified assertion (P4)."""
     tier = TOOL_TIERS.get(tool, USER_DATA)
     logger.info("tool-gateway tool=%s tier=%s identity=%s", tool, tier, identity or "guest")
+    # A guest reaching for an identity-scoped tool is a probe (the tool will yield
+    # a "sign in" result, never data) — feed it to abuse scoring so repeated
+    # attempts escalate enforcement at the chat gateway (P3/P7).
+    if tier is USER_DATA and identity is None:
+        abuse.record("anon", POINTS_UNAUTHORIZED_TOOL)
     return identity

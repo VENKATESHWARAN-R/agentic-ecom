@@ -24,3 +24,20 @@ FRONTEND_ORIGIN = os.getenv("FRONTEND_ORIGIN", "http://localhost:3000")
 # signs a short-lived JWT with this; the backend verifies it. Mock credential,
 # real enforcement — set a strong value via env in any non-dev environment.
 INTERNAL_JWT_SECRET = os.getenv("INTERNAL_JWT_SECRET") or "dev-only-insecure-internal-secret-change-me"
+
+
+def _flag(name: str, default: bool) -> bool:
+    raw = os.getenv(name)
+    if raw is None:
+        return default
+    return raw.strip().lower() in ("1", "true", "yes", "on")
+
+
+# Input-safety guard (P3/P7). The chat gateway screens each user message against
+# the standalone guard service before running the agent. The guard is
+# non-mandatory by design: GUARD_FAIL_OPEN (default true) means a guard outage
+# allows traffic through (logged) rather than taking chat down.
+GUARD_ENABLED = _flag("GUARD_ENABLED", True)
+GUARD_URL = os.getenv("GUARD_URL") or "http://localhost:8001"
+GUARD_FAIL_OPEN = _flag("GUARD_FAIL_OPEN", True)
+GUARD_TIMEOUT_SECONDS = float(os.getenv("GUARD_TIMEOUT_SECONDS", "2.0"))

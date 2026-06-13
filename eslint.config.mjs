@@ -5,7 +5,9 @@ const eslintConfig = [
   ...nextVitals,
   ...nextTypescript,
   {
-    ignores: [".next/**", "node_modules/**"],
+    // Skip build output, deps, and the Python services' virtualenvs (the guard's
+    // .venv vendors torch, which ships bundled JS that trips these rules).
+    ignores: [".next/**", "node_modules/**", "**/.venv/**"],
   },
 ];
 
