@@ -12,6 +12,7 @@ from __future__ import annotations
 
 from contextlib import asynccontextmanager
 
+import logfire
 from fastapi import FastAPI
 from fastapi.concurrency import run_in_threadpool
 from pydantic import BaseModel
@@ -31,6 +32,10 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="Voltti guard", lifespan=lifespan)
+
+# Observability (P7): trace /classify. No external export unless LOGFIRE_TOKEN is set.
+logfire.configure(service_name="voltti-guard", send_to_logfire="if-token-present", console=False)
+logfire.instrument_fastapi(app, capture_headers=False)
 
 
 class ClassifyIn(BaseModel):

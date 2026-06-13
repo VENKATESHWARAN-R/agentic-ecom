@@ -24,7 +24,7 @@ Reading order for a cold start: **this doc → 1 → 2 → 3 → 4**.
 | 3 — Edge + limits | P7 | nginx single ingress + per-IP/per-identity rate limits + per-run token caps | ✅ done (`7bdcf49`) |
 | 4 — Input safety | P3/P7 | Prompt-injection/jailbreak screen + abuse scoring | ✅ done (`f92f77c` + 4b) |
 | 5 — Output validation | P6 | Leak/field-filter/unsafe-link checks on agent output | ✅ done |
-| 6 — Observability | P7 | Logfire audit + the §19 metrics | ⬜ not started |
+| 6 — Observability | P7 | Logfire audit + the §19 metrics | ✅ done |
 
 ## 2. Environment & how to run
 - **Branch:** `feat/security-hardening` (off `feat/agent-backend-extraction`; design docs committed at `f8299c4`).
@@ -65,14 +65,10 @@ The classifier is now called before every agent run. As-built flow + diagram: [s
 **Where & what:**
 **✅ DONE.** As-built flow + diagram: [security-implementation.md](security-implementation.md) "Slice 5 · Output validation". What landed: the agent's 8 tools moved onto a `FunctionToolset` wrapped by `OutputValidationToolset` (a `WrapperToolset`) — every tool result runs through `filter_result` (drops deny-listed PII/secret keys at any depth; scans strings for secrets/unsafe-links) **before** the model/UI sees it. Free text gets a best-effort `audit_final_text` via `dispatch_request(on_complete=…)` (post-stream scan + log, since SSE can't un-send). `@agent.output_validator` was ruled out — it only fires for structured output, ours is plain text. Prompt hardened with explicit output rules. Tests in `test_output_validation.py` (incl. a real-`Agent` integration proving a leaky tool's field is stripped before the model). `voltti.outputvalidation` audit logs feed Slice 6.
 
-### Slice 6 — observability (P7)
-**Why:** "if you can't observe the agent, you can't safely operate it." Also closes a known gap — the tool-gateway audit logger (`policy.py` `logger.info`) is **not surfaced** by uvicorn's default logging today.
+### Slice 6 — observability (P7) ✅ DONE
+As-built flow + diagram: [security-implementation.md](security-implementation.md) "Slice 6 · Observability & audit". What landed: **Logfire** (OTel) in both services via `observability.py` — `instrument_fastapi` + `instrument_httpx` + `instrument_pydantic_ai(include_content=False)` (no raw prompts/PII in telemetry, P6); a `LogfireLoggingHandler` on the `voltti.*` namespace surfaces the existing audit loggers (closes the tool-gateway-logger gap); §19 metric counters (`voltti.guard.blocked`, `.tool.unauthorized`, `.ratelimit.throttled`, `.output.dropped`, `.authz.denied`, `.chat.refusals`) at each decision point; `owner_or_403` now logs 401/403 denials. `send_to_logfire="if-token-present"` → nothing exported unless `LOGFIRE_TOKEN` set (passed through in compose). Verified with Logfire's test exporter: an agent run emits `agent run`/`chat`/`running tool` spans, a `voltti.toolgateway` audit log is captured, and no raw prompt text appears in attributes.
 
-**Where & what:**
-- Use the **`logfire-instrumentation`** skill. Wire **Logfire** into the backend (and the guard service). Pydantic AI + FastAPI have first-class Logfire integration.
-- **Audit every decision:** tool-gateway authorizations (`policy.py`), authz 401/403 (`owner_or_403`), rate-limit 429s (`ratelimit.py`), guard verdicts (4b), per-run token usage. **Logs store hashes/metadata, not raw prompts/PII** (P6).
-- **Metrics (guide §19):** Prompt Guard hit rate, unauthorized-tool attempts, tool calls/session, token spend/session, refusal rate, etc.
-- **Verify:** trigger a tool call, a 403, a 429, and a guard block → confirm each appears as a structured Logfire event/metric with no raw PII.
+**🎉 All six slices complete — the medium-risk control set is fully implemented.** Next: the consolidated documentation pass (rewrite `architecture.md` as the durable as-built reference; retire this handoff doc).
 
 ## 5. Known carry-overs / tech debt (cross-slice)
 - **Persona PII in the client bundle** — `src/lib/users.ts` ships personas incl. `savedAddress`. Move server-side (it's a demo crutch; identity-of-record is already the session). Relates to the context-builder in [target-architecture.md](target-architecture.md).

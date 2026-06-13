@@ -9,12 +9,14 @@ resolves the active persona and calls these endpoints itself.
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlmodel import Session
 
+from .. import observability
 from ..db import engine, get_all_orders, get_users
 from ..domain.catalog import all_products, get_alternatives, get_product, search_products
 from ..domain.compat import check_compatibility
@@ -31,6 +33,10 @@ from ..security import optional_identity
 
 router = APIRouter(prefix="/api")
 
+# Authorization audit (P7): denials are logged on the voltti.* namespace so Logfire
+# surfaces them (see observability.configure).
+_audit_logger = logging.getLogger("voltti.authz")
+
 RETURN_POLICY = "30-day free returns from the delivery date; item unopened or unused. Drop off at any Posti point (demo)."
 
 
@@ -40,8 +46,11 @@ def owner_or_403(user_id: str, identity: str | None = Depends(optional_identity)
     signed assertion, never the path — the path id names the requested resource,
     it is not proof of identity (P2/P4)."""
     if identity is None:
+        _audit_logger.info("authz-deny status=401 resource=%s reason=no-identity", user_id)
         raise HTTPException(status_code=401, detail="Authentication required.")
     if identity != user_id:
+        _audit_logger.info("authz-deny status=403 identity=%s resource=%s reason=not-owner", identity, user_id)
+        observability.count("voltti.authz.denied")
         raise HTTPException(status_code=403, detail="You can only access your own data.")
     return identity
 

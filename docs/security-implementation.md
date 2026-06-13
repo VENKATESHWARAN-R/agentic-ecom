@@ -2,7 +2,7 @@
 
 How the security layers **actually work today**, in plain language — the flows, what exists, why, and how, so you can understand the system without reading the code. This is the as-built companion to the planned design in [target-architecture.md](target-architecture.md); each slice from the [roadmap](security-principles.md#roadmap) appends a section here as it lands.
 
-**Status:** Slices 1–5 (identity, authorization, edge/limits, input-safety, output-validation) — ✅ built & verified · Slice 6 (observability) — pending.
+**Status:** Slices 1–6 — ✅ built & verified. Identity, authorization, edge/limits, input-safety, output-validation, and observability are all in place; this is the complete medium-risk control set.
 
 ---
 
@@ -285,3 +285,40 @@ sequenceDiagram
 Unit-tested in [test_output_validation.py](../backend/tests/test_output_validation.py): forbidden keys are dropped at any nesting depth, a curated order page passes through byte-identical, the scanners catch a JWT/`hf_`/`sk-` string, a system-prompt echo, and an off-site link, and — end to end through a real `Agent` — a deliberately leaky tool's `email` field is stripped before it reaches the model.
 
 Live, the orders card renders exactly as before (the filter is a no-op on already-curated data — proving no regression); inject an extra `email` field into a tool's return and it's gone before render, with a `voltti.outputvalidation … dropped=['email']` line in the backend log.
+
+---
+
+## Slice 6 · Observability & audit (P7)
+
+### The problem it solves
+Five slices of controls are only as good as your ability to *see them working*. If you can't observe the agent — what it ran, who it was, why a request was refused, how many tokens it burned — you can't safely operate it, debug an incident, or prove a control fired. This slice makes every security decision and every agent run **visible**, and closes a known gap: until now the audit logs (tool-gateway, output-validation) were plain `logger` lines uvicorn never surfaced.
+
+### What exists now — Logfire across both services
+[Logfire](https://logfire.pydantic.dev) (OpenTelemetry) is wired into the backend and the guard ([observability.py](../backend/src/voltti_backend/observability.py)), giving three things:
+
+- **Auto-instrumentation.** Every HTTP request, every agent run, and the outbound guard call become traces. A single chat turn is one tree: `agent run` → `chat` (the LLM call, with token usage) → `running tool` per tool → the guard's `/classify` span. You can see exactly what a turn did and what it cost.
+- **Audit surfacing.** The security layers already log their decisions to `voltti.*` loggers; a `LogfireLoggingHandler` on that namespace routes them all into Logfire — so authorization denials, guard verdicts, and output-validation drops are queryable events, not lost in stdout. **This closes the Slice 3 carry-over** (the tool-gateway audit logger wasn't surfaced).
+- **Metrics (§19).** Counters for the security signals: `voltti.guard.blocked`, `voltti.tool.unauthorized`, `voltti.ratelimit.throttled`, `voltti.output.dropped`, `voltti.authz.denied`, `voltti.chat.refusals` — incremented at each decision point.
+
+Every security decision now emits an audit event: a `429` throttle, a `401/403` ownership denial ([routes.py](../backend/src/voltti_backend/api/routes.py) `owner_or_403`), a guard block, an unauthorized-tool probe, an output-validation drop, and a per-run token total.
+
+### What's recorded — and what is deliberately not (P6)
+Observability is itself a data-exposure surface, so it's bounded by the same discipline:
+- **Raw prompts and responses are *not* captured** — `instrument_pydantic_ai(include_content=False)`. Traces carry the *shape* of a run (tool names, token counts, durations, the mock identity handle), never the chat text. Combined with the earlier slices (the model never receives PII), no personal data reaches telemetry.
+- **Nothing leaves the process by default.** `send_to_logfire="if-token-present"` means a tokenless run exports nowhere; set `LOGFIRE_TOKEN` to send to the Logfire dashboard. No silent external egress.
+
+```
+chat turn ─▶  ┌─ agent run ──────────────────────────────────┐
+              │   ├─ chat (LLM call · token usage)            │
+              │   ├─ running tool: getMyOrders                │
+              │   │     └─ output-validation (drop? audit)    │   ──▶ Logfire
+              │   └─ guard /classify (POST span)              │       (traces · audit logs · §19 metrics)
+              └──────────────────────────────────────────────┘       only if LOGFIRE_TOKEN set
+```
+
+### What's enforced vs. deferred
+- ✅ **In place now:** request/agent/guard tracing; the `voltti.*` audit logs surfaced as structured events; §19 metric counters at every decision point; raw content excluded from telemetry (P6); local-by-default export.
+- 🟡 **Operational, not code:** dashboards/alerts on these metrics live in the Logfire UI (needs a token) — the signals are emitted; visualizing them is a deployment step.
+
+### See it working
+Unit tests protect the wiring ([test_observability.py](../backend/tests/test_observability.py)): configuration is idempotent, metric counting never raises (observability must never break a request), and the audit handler is attached to the `voltti.*` namespace. Verified in-process with Logfire's test exporter: an agent run emits `agent run` / `chat` / `running tool` spans, a `voltti.toolgateway` audit log is captured as a span, and **no raw prompt text** appears in any attribute. With `LOGFIRE_TOKEN` set, the same data lands in the Logfire dashboard.

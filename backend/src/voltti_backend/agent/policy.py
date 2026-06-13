@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import logging
 
+from .. import observability
 from ..abuse import POINTS_UNAUTHORIZED_TOOL, abuse
 
 logger = logging.getLogger("voltti.toolgateway")
@@ -46,4 +47,5 @@ def authorize(tool: str, identity: str | None) -> str | None:
     # attempts escalate enforcement at the chat gateway (P3/P7).
     if tier is USER_DATA and identity is None:
         abuse.record("anon", POINTS_UNAUTHORIZED_TOOL)
+        observability.count("voltti.tool.unauthorized")
     return identity

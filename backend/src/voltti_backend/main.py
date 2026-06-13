@@ -22,7 +22,7 @@ from fastapi.responses import StreamingResponse
 from pydantic_ai import UsageLimits
 from pydantic_ai.ui.ag_ui import AGUIAdapter
 
-from . import guard_client
+from . import guard_client, observability
 from .abuse import POINTS_GUARD_BLOCK, abuse
 from .agent.agent import AgentDeps, agent
 from .agent.output_validation import audit_final_text
@@ -40,6 +40,10 @@ async def lifespan(_: FastAPI):
 
 
 app = FastAPI(title="Voltti backend", lifespan=lifespan)
+
+# Observability & audit (P7): trace requests/agent runs, surface the security audit
+# logs, and count the §19 metrics. No external export unless LOGFIRE_TOKEN is set.
+observability.configure(app)
 
 app.add_middleware(
     CORSMiddleware,
@@ -121,6 +125,7 @@ async def run_agent(request: Request) -> Response:
     identity = _identity_from(request)
     key = identity or "anon"
     if not agui_limiter.allow(key):
+        observability.count("voltti.ratelimit.throttled")
         return Response(
             content='{"error":"Too many requests — slow down a moment."}',
             status_code=429,
@@ -134,6 +139,7 @@ async def run_agent(request: Request) -> Response:
     # latest user message and, if flagged, refuse without ever running the agent —
     # a malicious message is data, not an instruction.
     if abuse.level(key) == "blocked":
+        observability.count("voltti.chat.refusals")
         return _refusal_stream(thread_id, run_id, _REFUSAL_ABUSE)
     if GUARD_ENABLED:
         user_text = _latest_user_message(body)
@@ -141,6 +147,8 @@ async def run_agent(request: Request) -> Response:
             verdict = await guard_client.screen(user_text)
             if verdict["blocked"]:
                 abuse.record(key, POINTS_GUARD_BLOCK)
+                observability.count("voltti.guard.blocked")
+                observability.count("voltti.chat.refusals")
                 return _refusal_stream(thread_id, run_id, _REFUSAL_GUARD)
 
     deps = AgentDeps(context=body.get("context") or [], identity=identity)

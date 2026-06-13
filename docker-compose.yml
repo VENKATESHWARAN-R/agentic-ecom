@@ -19,6 +19,8 @@ services:
       GUARD_ENABLED: ${GUARD_ENABLED:-true}
       GUARD_URL: http://guard:8001
       GUARD_FAIL_OPEN: ${GUARD_FAIL_OPEN:-true}
+      # Observability (P7): unset → telemetry stays local; set → export to Logfire.
+      LOGFIRE_TOKEN: ${LOGFIRE_TOKEN:-}
     depends_on:
       - guard
 
@@ -35,6 +37,7 @@ services:
     environment:
       GUARD_MODEL_ID: ${GUARD_MODEL_ID:-meta-llama/Llama-Prompt-Guard-2-22M}
       GUARD_THRESHOLD: ${GUARD_THRESHOLD:-0.5}
+      LOGFIRE_TOKEN: ${LOGFIRE_TOKEN:-}
 
   voltti:
     build:

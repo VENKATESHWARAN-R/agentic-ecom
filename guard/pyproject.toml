@@ -9,6 +9,7 @@ dependencies = [
     "transformers>=4.44",
     "torch>=2.4",
     "python-dotenv>=1.0",
+    "logfire[fastapi]>=4.37.0",
 ]
 
 # Pull the CPU-only PyTorch build (the default PyPI linux wheel bundles ~900 MB of

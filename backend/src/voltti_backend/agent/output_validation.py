@@ -137,6 +137,9 @@ class OutputValidationToolset(WrapperToolset[Any]):
                 dropped or "[]",
                 findings or "[]",
             )
+            from .. import observability
+
+            observability.count("voltti.output.dropped")
         return cleaned
 
 
