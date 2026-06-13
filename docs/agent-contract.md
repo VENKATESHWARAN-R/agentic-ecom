@@ -28,7 +28,9 @@ The LLM orchestrates and explains; the domain services own the facts. Every prod
 
 ## Agent Tools
 
-Defined in `backend/src/voltti_backend/agent/agent.py`, executed by the Pydantic AI agent in the Python backend. All are deterministic wrappers over the backend domain layer (`backend/src/voltti_backend/domain/`) and return compact `productSummary` shapes. Their names are part of the contract — the storefront's generative-UI renderers key on them.
+Defined in `backend/src/voltti_backend/agent/agent.py`, executed by the Pydantic AI agent in the Python backend. The six catalog tools are deterministic wrappers over the backend domain layer (`backend/src/voltti_backend/domain/`) returning compact `productSummary` shapes; their names are part of the contract — the storefront's generative-UI renderers key on them.
+
+`getMyOrders` and `getReturnInfo` are **identity-scoped** backend tools: they read the session identity from `deps` (resolved from the BFF assertion, never a model parameter) and pass through the tool gateway (`agent/policy.py`, which tiers and audits each call). The six catalog tools are user-independent.
 
 | Tool | Purpose |
 |---|---|
@@ -38,10 +40,12 @@ Defined in `backend/src/voltti_backend/agent/agent.py`, executed by the Pydantic
 | `checkCompatibility` | PC-part check: CPU socket vs motherboard, memory generation, GPU length vs case clearance, PSU headroom, stock. Optional `owned: { productId, orderNumber, orderedOn }[]` unions in parts the customer already owns so conflicts span across orders and are attributed to the purchase ("…from your order VLT-1002"). |
 | `recommendPcBuild` | Custom part-picker: allocates a budget across CPU/board/RAM/GPU/storage/PSU/case, keeps the platform consistent, runs the compatibility check on the result. |
 | `recommendGamingSetup` | Prebuilt advisor: desktop or gaming laptop within budget, optional monitor and peripherals, plus alternatives. |
+| `getMyOrders` | **Identity-scoped.** Paginated order summaries for the signed-in customer (`limit` 1–20, default 5; `offset`) + `total`. `{ signedIn: false }` for guests. No userId parameter — the customer is the session. |
+| `getReturnInfo` | **Identity-scoped.** Return status + computed deadline for one of the signed-in customer's orders (`orderNumber`). Deadline quoted verbatim, never computed by the model. |
 
 ## Frontend Tools
 
-Defined in `src/components/copilot/shopping-assistant.tsx`, executed in the browser via the Next router and `useShop()` (forwarded to the agent automatically over AG-UI). They steer what the user sees but never mutate the cart. The order/return tools are **identity-scoped**: they read the active persona directly and call the backend REST API with it, so there is no `userId` parameter for the model to supply (see Safety Rules).
+Defined in `src/components/copilot/shopping-assistant.tsx`, executed in the browser via the Next router and `useShop()` (forwarded to the agent automatically over AG-UI). They steer what the user sees but never mutate the cart.
 
 | Tool | Purpose |
 |---|---|
@@ -51,8 +55,6 @@ Defined in `src/components/copilot/shopping-assistant.tsx`, executed in the brow
 | `highlightProducts` | Visually highlight products in the current listing. |
 | `openComparison` | Open the comparison modal for 2–4 products; returns the compatibility result. |
 | `prefillCheckout` | Fill the checkout form, then open checkout. With `useSavedAddress: true` it applies the signed-in persona's saved address **without the address ever entering chat** (returns only "Saved address applied"). Otherwise uses only details the user explicitly gave; never invents. |
-| `getMyOrders` | Paginated order summaries for the active persona (`{ limit?: 1–20 = 5, offset? }`) + `total`. Returns `{ signedIn: false }` for guests. Renders an order-list card. |
-| `getReturnInfo` | Return status + **explicit deadline** for one order (`{ orderNumber }`). Deadlines are computed by `returnEligibility()`, never by the model. Renders an eligible/closed/in-transit badge card. |
 
 ## Human-in-the-Loop
 

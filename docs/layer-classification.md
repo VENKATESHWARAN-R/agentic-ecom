@@ -1,8 +1,8 @@
 # Layer Classification (tools · data · authorization)
 
-Step 3 of the effort in [security-principles.md](security-principles.md). It turns the [target architecture](target-architecture.md) into the concrete inventory the **tool gateway** and **authorization layer** will enforce: a risk tier for every tool, a trust label and sensitivity for every piece of data, and the access-mode + ownership model that decides who may do what.
+Part of the effort in [security-principles.md](security-principles.md). It is the concrete inventory the **tool gateway** and **authorization layer** enforce: a risk tier for every tool, a trust label and sensitivity for every piece of data, and the access-mode + ownership model that decides who may do what. See [architecture.md](architecture.md) for how these land in the as-built system.
 
-> **Design only — no code yet.** This is the specification Step 4 implements. The tool/endpoint *names* are today's; the *placement* and *controls* columns are the target (per the two Phase-2 decisions: BFF session, identity-scoped data → backend tools).
+> **Implemented.** This classification is enforced in the as-built system; the *placement* and *controls* columns describe what runs today. See [security-implementation.md](security-implementation.md) for the per-layer flows.
 
 ## 1. Tool layer — risk tiers
 
@@ -82,17 +82,16 @@ Any T2/T3/T4 access to user data must satisfy `resource.userId == session.identi
 ### Mock session → identity (target)
 The persona switcher becomes a **mock login**: selecting a persona establishes a server-side session at the BFF (httpOnly cookie), which resolves identity and signs the assertion the backend trusts. Issuance is mock; enforcement (ownership, modes) is real.
 
-## Handoff to Step 4 (mechanisms)
+## How this is enforced (as built)
 
-This classification makes the following concrete:
-- The **tool gateway** keys off the Tier column: T1 passes cheaply; T2 enforces auth+ownership+field-filter; T3 requires confirmation/approval; T4 (when it exists) adds step-up. Agent tools declare their tier.
-- **REST `/api/users/{id}/*` must enforce `{id} == session`**; `POST /api/orders` takes identity from the session, not the body.
-- **`GET /api/users`** stops exposing PII — it becomes the mock-login surface.
-- **`prefillCheckout(useSavedAddress)`** fetches the address server-side under the BFF; it never enters the model.
-- **`checkCompatibility.owned`** is validated/derived from the session, not trusted as model input.
-- The **field-sensitivity table** drives output validation and log redaction.
+This classification is realized in the running system:
+- The **tool gateway** ([policy.py](../backend/src/voltti_backend/agent/policy.py)) keys off the Tier column: T1 passes cheaply; T2 enforces auth+ownership+audit; T3 requires confirmation/approval. Agent tools declare their tier.
+- **REST `/api/users/{id}/*` enforces `{id} == session`** ([routes.py](../backend/src/voltti_backend/api/routes.py) `owner_or_403`); `POST /api/orders` takes identity from the session, not the body.
+- **`GET /api/users`** carries no PII — it's the mock-login surface.
+- **`prefillCheckout(useSavedAddress)`** applies the address client-side; it never enters the model.
+- The **field-sensitivity table** drives [output validation](../backend/src/voltti_backend/agent/output_validation.py) and log redaction.
 
 ## See also
 - [security-principles.md](security-principles.md) — the principles these tiers enforce (P2, P4, P5, P6).
-- [target-architecture.md](target-architecture.md) — where the tool gateway and authz layer live.
+- [architecture.md](architecture.md) — where the tool gateway and authz layer live in the as-built system.
 - [agent-contract.md](agent-contract.md) — the tool surface; the frontend→backend moves above land here at implementation.

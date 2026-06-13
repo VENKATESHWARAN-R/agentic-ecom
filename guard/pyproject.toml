@@ -1,0 +1,39 @@
+[project]
+name = "voltti-guard"
+version = "0.1.0"
+description = "Voltti input-safety service: a Prompt Guard prompt-injection/jailbreak classifier exposed over HTTP. Separate from the agent backend so its heavy ML deps stay isolated and it can be upgraded/scaled/disabled on its own."
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn>=0.34",
+    "transformers>=4.44",
+    "torch>=2.4",
+    "python-dotenv>=1.0",
+    "logfire[fastapi]>=4.37.0",
+]
+
+# Pull the CPU-only PyTorch build (the default PyPI linux wheel bundles ~900 MB of
+# unused CUDA). The cpu index also serves the macOS arm64 wheel.
+[tool.uv.sources]
+torch = [{ index = "pytorch-cpu" }]
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3",
+    "httpx>=0.28",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/voltti_guard"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

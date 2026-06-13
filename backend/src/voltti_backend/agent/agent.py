@@ -19,11 +19,17 @@ from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, Field
 from pydantic_ai import Agent, RunContext
+from pydantic_ai.toolsets.function import FunctionToolset
+from sqlmodel import Session
 
 from ..config import AGENT_MODEL
+from ..db import engine, get_all_orders
 from ..domain.builds import recommend_gaming_setup, recommend_pc_build
 from ..domain.catalog import get_alternatives, get_product, product_summary, search_products
 from ..domain.compat import check_compatibility
+from ..domain.orders import get_order_detail, get_orders_for
+from . import policy
+from .output_validation import OutputValidationToolset
 
 SYSTEM_PROMPT = (Path(__file__).parent / "prompt.md").read_text()
 
@@ -34,9 +40,11 @@ Category = Literal[
 
 @dataclass
 class AgentDeps:
-    """Per-request dependencies: the AG-UI context items from the frontend."""
+    """Per-request dependencies: the AG-UI context items from the frontend, plus
+    the session identity resolved from the BFF assertion (never model-supplied)."""
 
     context: list[dict[str, Any]] = field(default_factory=list)
+    identity: str | None = None
 
 
 class OwnedRef(BaseModel):
@@ -47,27 +55,14 @@ class OwnedRef(BaseModel):
     orderedOn: str
 
 
-agent = Agent(
-    AGENT_MODEL,
-    deps_type=AgentDeps,
-    instructions=SYSTEM_PROMPT,
-)
+# Tools live on a FunctionToolset so it can be wrapped by the output-validation
+# layer at agent construction (below) — every tool result is field-filtered and
+# scanned before it reaches the model or the UI (P6). Tool names are unchanged, so
+# the frontend's generative-UI renderers keep working.
+tools = FunctionToolset()
 
 
-@agent.instructions
-def live_app_context(ctx: RunContext[AgentDeps]) -> str | None:
-    if not ctx.deps or not ctx.deps.context:
-        return None
-    sections: list[str] = []
-    for item in ctx.deps.context:
-        description = item.get("description") or "Context"
-        value = item.get("value")
-        rendered = value if isinstance(value, str) else json.dumps(value, ensure_ascii=False)
-        sections.append(f"## {description}\n{rendered}")
-    return "# Live application context\n" + "\n\n".join(sections)
-
-
-@agent.tool_plain
+@tools.tool_plain
 def searchCatalog(
     query: Annotated[str | None, Field(description="Free-text search, e.g. 'noise cancelling headphones' or 'rtx 5070'.")] = None,
     category: Category | None = None,
@@ -93,7 +88,7 @@ def searchCatalog(
     }
 
 
-@agent.tool_plain
+@tools.tool_plain
 def getProductDetails(productId: str) -> dict[str, Any]:
     """Get full details for one product by id: description, specs, stock, and compatibility metadata."""
     product = get_product(productId)
@@ -107,7 +102,7 @@ def getProductDetails(productId: str) -> dict[str, Any]:
     }
 
 
-@agent.tool_plain
+@tools.tool_plain
 def getProductAlternatives(
     productId: Annotated[str, Field(description="The product to find alternatives for.")],
 ) -> dict[str, Any]:
@@ -120,7 +115,7 @@ def getProductAlternatives(
     return result
 
 
-@agent.tool_plain
+@tools.tool_plain
 def checkCompatibility(
     productIds: Annotated[list[str], Field(min_length=1, description="Product ids of the candidate parts to check.")],
     owned: Annotated[
@@ -132,7 +127,7 @@ def checkCompatibility(
     return check_compatibility(productIds, [ref.model_dump() for ref in owned] if owned else [])
 
 
-@agent.tool_plain
+@tools.tool_plain
 def recommendPcBuild(
     budget: Annotated[float, Field(description="Budget in EUR.")],
     cpuPlatform: Annotated[Literal["amd", "intel"] | None, Field(description="CPU platform preference, if the user stated one.")] = None,
@@ -146,7 +141,7 @@ def recommendPcBuild(
     return {**result, "parts": [product_summary(p) for p in result["parts"]]}
 
 
-@agent.tool_plain
+@tools.tool_plain
 def recommendGamingSetup(
     budget: Annotated[float, Field(description="Budget in EUR.")],
     games: list[str] | None = None,
@@ -171,3 +166,88 @@ def recommendGamingSetup(
         "products": [product_summary(p) for p in result["products"]],
         "alternatives": [product_summary(p) for p in result["alternatives"]],
     }
+
+
+# Mirror of api.routes.RETURN_POLICY (demo copy — kept here so the order/return
+# tools don't import the API layer).
+RETURN_POLICY = "30-day free returns from the delivery date; item unopened or unused. Drop off at any Posti point (demo)."
+
+
+# ---------------------------------------------------------------- identity-scoped tools
+# Run in the backend (unlike the catalog tools, these touch user data). Identity
+# comes from the session via deps — there is NO userId parameter for the model to
+# supply, hallucinate, or be talked into changing (P4). Each call passes the tool
+# gateway (P2/P5) and is scoped to the authenticated owner.
+
+
+@tools.tool
+def getMyOrders(
+    ctx: RunContext[AgentDeps],
+    limit: Annotated[int, Field(ge=1, le=20, description="How many orders to return (default 5, max 20).")] = 5,
+    offset: Annotated[int, Field(ge=0, description="Skip this many of the newest orders, for pagination.")] = 0,
+) -> dict[str, Any]:
+    """List the signed-in customer's recent orders as compact summaries. Paginated — default 5, max 20 per call; use `total`/`offset` to page only if the user asks. The customer is whoever is signed in; you cannot pass a user id."""
+    identity = policy.authorize("getMyOrders", ctx.deps.identity)
+    if identity is None:
+        return {"signedIn": False}
+    with Session(engine) as session:
+        orders = get_all_orders(session)
+    page = get_orders_for(identity, orders, limit=limit, offset=offset)
+    return {
+        "signedIn": True,
+        "total": page["total"],
+        "offset": max(0, offset),
+        "returned": len(page["orders"]),
+        "orders": page["orders"],
+    }
+
+
+@tools.tool
+def getReturnInfo(
+    ctx: RunContext[AgentDeps],
+    orderNumber: Annotated[str, Field(description="Order number, e.g. VLT-1002.")],
+) -> dict[str, Any]:
+    """Return status and the exact return-by date for one of the signed-in customer's orders. Quote the deadline verbatim — never compute dates yourself. Scoped to the signed-in customer; you cannot pass a user id."""
+    identity = policy.authorize("getReturnInfo", ctx.deps.identity)
+    if identity is None:
+        return {"signedIn": False}
+    with Session(engine) as session:
+        orders = get_all_orders(session)
+    detail = get_order_detail(identity, orderNumber, orders)
+    if not detail:
+        return {"signedIn": True, "found": False, "orderNumber": orderNumber}
+    return {
+        "signedIn": True,
+        "found": True,
+        "policy": RETURN_POLICY,
+        "order": {
+            "number": detail["number"],
+            "status": detail["status"],
+            "deliveredAt": detail.get("deliveredAt"),
+            "returnEligibility": detail["returnEligibility"],
+            "items": [line["name"] for line in detail["lines"]],
+        },
+    }
+
+
+# The agent wraps its toolset in the output-validation layer (P6): every tool
+# result is field-filtered + scanned before it reaches the model or the UI.
+agent = Agent(
+    AGENT_MODEL,
+    deps_type=AgentDeps,
+    instructions=SYSTEM_PROMPT,
+    toolsets=[OutputValidationToolset(tools)],
+)
+
+
+@agent.instructions
+def live_app_context(ctx: RunContext[AgentDeps]) -> str | None:
+    if not ctx.deps or not ctx.deps.context:
+        return None
+    sections: list[str] = []
+    for item in ctx.deps.context:
+        description = item.get("description") or "Context"
+        value = item.get("value")
+        rendered = value if isinstance(value, str) else json.dumps(value, ensure_ascii=False)
+        sections.append(f"## {description}\n{rendered}")
+    return "# Live application context\n" + "\n\n".join(sections)

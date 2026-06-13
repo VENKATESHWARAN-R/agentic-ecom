@@ -44,7 +44,8 @@ type ShopContextValue = {
 const ShopContext = createContext<ShopContextValue | null>(null);
 
 const CART_KEY = "voltti.cart.v1";
-const USER_KEY = "voltti.user.v1";
+// Identity is no longer a localStorage value — it is resolved from the BFF
+// session (P4). The old voltti.user.v1 key is intentionally gone.
 
 /** Non-PII checkout defaults for a persona (payment + country only — the address is applied explicitly). */
 function personaCheckoutDefaults(user: UserProfile | null): Partial<CheckoutDetails> {
@@ -67,30 +68,42 @@ export function ShopProvider({ children }: { children: React.ReactNode }) {
   const activeUser = useMemo(() => getUserProfile(personaId), [personaId]);
 
   useEffect(() => {
-    // One-time hydration from localStorage after mount (avoids SSR mismatch).
+    // One-time hydration after mount (avoids SSR mismatch).
     /* eslint-disable react-hooks/set-state-in-effect -- intentional one-time hydration */
+    // Cart stays client-side (pre-transactional) — restore it from localStorage.
     try {
       const storedCart = window.localStorage.getItem(CART_KEY);
       if (storedCart) setCart(JSON.parse(storedCart));
-      const storedUser = window.localStorage.getItem(USER_KEY);
-      if (storedUser && isPersonaId(storedUser)) {
-        setPersonaId(storedUser);
-        setCheckoutDraft((current) => ({ ...current, ...personaCheckoutDefaults(getUserProfile(storedUser)) }));
-      }
     } catch {
       // ignore corrupted storage
     }
     setHydrated(true);
     /* eslint-enable react-hooks/set-state-in-effect */
+
+    // Identity is server-resolved (P4): read the active persona from the BFF
+    // session cookie, never from localStorage. Guests resolve to "guest".
+    let cancelled = false;
+    fetch("/api/session", { cache: "no-store" })
+      .then((response) => (response.ok ? response.json() : { personaId: "guest" }))
+      .then((data: { personaId?: string }) => {
+        if (cancelled) return;
+        const id = data.personaId;
+        if (typeof id === "string" && isPersonaId(id) && id !== "guest") {
+          setPersonaId(id);
+          setCheckoutDraft((current) => ({ ...current, ...personaCheckoutDefaults(getUserProfile(id)) }));
+        }
+      })
+      .catch(() => {
+        // backend/session unreachable → stay guest
+      });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {
     if (hydrated) window.localStorage.setItem(CART_KEY, JSON.stringify(cart));
   }, [cart, hydrated]);
-
-  useEffect(() => {
-    if (hydrated) window.localStorage.setItem(USER_KEY, personaId);
-  }, [personaId, hydrated]);
 
   const addToCart = useCallback((productId: string, quantity = 1) => {
     const product = getProduct(productId);
@@ -147,20 +160,37 @@ export function ShopProvider({ children }: { children: React.ReactNode }) {
   }, [personaId]);
 
   const setActiveUser = useCallback((id: PersonaId) => {
-    // Switching identity: keep the cart, but clear highlights/compare and reset
-    // the checkout draft to the new persona's (non-PII) defaults.
-    setPersonaId(id);
-    setHighlightedIds([]);
-    setCompareIds([]);
-    setCompareOpen(false);
-    setCheckoutDraft(personaCheckoutDefaults(getUserProfile(id)));
+    // Identity of record is the BFF session (P4), not local state. Persist the
+    // change first (login POST / sign-out DELETE), then reflect it locally so a
+    // follow-up request carries the right assertion. Keep the cart; clear
+    // highlights/compare and reset the checkout draft to the persona's defaults.
+    const persist =
+      id === "guest"
+        ? fetch("/api/session", { method: "DELETE" })
+        : fetch("/api/session", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ personaId: id }),
+          });
+    void persist
+      .catch(() => {
+        // session write failed (backend down) — reflect locally anyway
+      })
+      .finally(() => {
+        setPersonaId(id);
+        setHighlightedIds([]);
+        setCompareIds([]);
+        setCompareOpen(false);
+        setCheckoutDraft(personaCheckoutDefaults(getUserProfile(id)));
+      });
   }, []);
 
   const placeOrder = useCallback(
     async (details: CheckoutDetails) => {
       if (!cart.length) return null;
       try {
-        const order = await placeOrderApi(personaId, cart, details);
+        // Identity is the BFF session's; placeOrderApi sends no userId (P4).
+        const order = await placeOrderApi(cart, details);
         setLastOrder(order);
         setCart([]);
         return order;
@@ -168,7 +198,7 @@ export function ShopProvider({ children }: { children: React.ReactNode }) {
         return null;
       }
     },
-    [cart, personaId],
+    [cart],
   );
 
   const value = useMemo<ShopContextValue>(
